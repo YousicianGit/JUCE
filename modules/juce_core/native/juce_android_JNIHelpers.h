@@ -187,7 +187,7 @@ public:
     static void initialiseAllClasses (JNIEnv*);
     static void releaseAllClasses (JNIEnv*);
 
-protected:
+public:
     virtual void initialiseFields (JNIEnv*) = 0;
 
     jmethodID resolveMethod (JNIEnv*, const char* methodName, const char* params);
@@ -207,12 +207,47 @@ private:
 };
 
 //==============================================================================
-#define CREATE_JNI_METHOD(methodID, stringName, params)         methodID = resolveMethod (env, stringName, params);
-#define CREATE_JNI_STATICMETHOD(methodID, stringName, params)   methodID = resolveStaticMethod (env, stringName, params);
-#define CREATE_JNI_FIELD(fieldID, stringName, signature)        fieldID  = resolveField (env, stringName, signature);
-#define CREATE_JNI_STATICFIELD(fieldID, stringName, signature)  fieldID  = resolveStaticField (env, stringName, signature);
-#define DECLARE_JNI_METHOD(methodID, stringName, params)        jmethodID methodID;
-#define DECLARE_JNI_FIELD(fieldID, stringName, signature)       jfieldID  fieldID;
+
+template<typename T>
+class LazyJNI
+{
+public:
+    using resolver_t = T (JNIClassBase::*)(JNIEnv*, const char *, const char *);
+    
+    LazyJNI() {}
+    
+    LazyJNI(JNIClassBase * obj, resolver_t resolver, JNIEnv * env, const char * name, const char * params)
+    : obj_(obj)
+    , resolver_(resolver)
+    , env_(env)
+    , name_(name)
+    , params_(params)
+    {}
+    
+    operator T ()
+    {
+        if (!value_)
+        {
+            value_ = (obj_->*resolver_)(env_, name_, params_);
+        }
+        return value_;
+    }
+    
+private:
+    JNIClassBase * obj_ = nullptr;
+    resolver_t resolver_ = nullptr;
+    JNIEnv * env_ = nullptr;
+    const char * name_ = nullptr;
+    const char * params_ = nullptr;
+    T value_ = nullptr;
+};
+
+#define CREATE_JNI_METHOD(methodID, stringName, params)         methodID = LazyJNI<jmethodID>(this, &JNIClassBase::resolveMethod, env, stringName, params);
+#define CREATE_JNI_STATICMETHOD(methodID, stringName, params)   methodID = LazyJNI<jmethodID>(this, &JNIClassBase::resolveStaticMethod, env, stringName, params);
+#define CREATE_JNI_FIELD(fieldID, stringName, signature)        fieldID  = LazyJNI<jfieldID>(this, &JNIClassBase::resolveField, env, stringName, signature);
+#define CREATE_JNI_STATICFIELD(fieldID, stringName, signature)  fieldID  = LazyJNI<jfieldID>(this, &JNIClassBase::resolveStaticField, env, stringName, signature);
+#define DECLARE_JNI_METHOD(methodID, stringName, params)        LazyJNI<jmethodID> methodID;
+#define DECLARE_JNI_FIELD(fieldID, stringName, signature)       LazyJNI<jfieldID>  fieldID;
 
 #define DECLARE_JNI_CLASS(CppClassName, javaPath) \
     class CppClassName ## _Class   : public JNIClassBase \
