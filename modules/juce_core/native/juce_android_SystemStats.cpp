@@ -26,6 +26,8 @@
   ==============================================================================
 */
 
+JNIEnv * JNIClassBase::jniEnv = nullptr;
+
 JNIClassBase::JNIClassBase (const char* cp)   : classPath (cp), classRef (0)
 {
     getClasses().add (this);
@@ -52,14 +54,15 @@ void JNIClassBase::initialise (JNIEnv* env)
 
 void JNIClassBase::release (JNIEnv* env)
 {
-    env->DeleteGlobalRef (classRef);
+    if (classRef) {
+        env->DeleteGlobalRef (classRef);
+    }
 }
 
-void JNIClassBase::initialiseAllClasses (JNIEnv* env)
+void JNIClassBase::setEnv (JNIEnv* env)
 {
-    const Array<JNIClassBase*>& classes = getClasses();
-    for (int i = classes.size(); --i >= 0;)
-        classes.getUnchecked(i)->initialise (env);
+    jassert(env != nullptr);
+    jniEnv = env;
 }
 
 void JNIClassBase::releaseAllClasses (JNIEnv* env)
@@ -125,10 +128,12 @@ AndroidSystem::AndroidSystem() : screenWidth (0), screenHeight (0), dpi (160)
 
 void AndroidSystem::initialise (JNIEnv* env, jobject act, jstring file, jstring dataDir)
 {
+    setEnv(env);
+    
     screenWidth = screenHeight = 0;
     dpi = 160;
-    JNIClassBase::initialiseAllClasses (env);
 
+    JNIClassBase::setEnv(env);
     activity = GlobalRef (act);
     appFile = juceString (env, file);
     appDataDir = juceString (env, dataDir);

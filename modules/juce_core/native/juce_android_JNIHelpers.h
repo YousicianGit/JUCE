@@ -182,9 +182,17 @@ public:
     explicit JNIClassBase (const char* classPath);
     virtual ~JNIClassBase();
 
-    inline operator jclass() const noexcept { return classRef; }
+    inline operator jclass()
+    {
+        if (!classRef)
+        {
+            jassert(jniEnv != nullptr);
+            initialise(jniEnv);
+        }
+        return classRef;
+    }
 
-    static void initialiseAllClasses (JNIEnv*);
+    static void setEnv (JNIEnv*);
     static void releaseAllClasses (JNIEnv*);
 
 public:
@@ -196,6 +204,8 @@ public:
     jfieldID resolveStaticField (JNIEnv*, const char* fieldName, const char* signature);
 
 private:
+    static JNIEnv * jniEnv;
+    
     const char* const classPath;
     jclass classRef;
 
