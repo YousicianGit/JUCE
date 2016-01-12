@@ -347,10 +347,25 @@ public:
         UInt32 size = sizeof (lat);
         AudioObjectPropertyAddress pa;
         pa.mElement = kAudioObjectPropertyElementMaster;
-        pa.mSelector = kAudioDevicePropertyLatency;
         pa.mScope = scope;
-        AudioObjectGetPropertyData (deviceID, &pa, 0, nullptr, &size, &lat);
-        return (int) lat;
+        
+        int sum = 0;
+        
+        // See http://lists.apple.com/archives/coreaudio-api/2010/Jan/msg00046.html
+        
+        pa.mSelector = kAudioDevicePropertyLatency;
+        if (AudioObjectGetPropertyData (deviceID, &pa, 0, nullptr, &size, &lat) == noErr)
+            sum += (int) lat;
+        
+        pa.mSelector = kAudioStreamPropertyLatency;
+        if (AudioObjectGetPropertyData (deviceID, &pa, 0, nullptr, &size, &lat) == noErr)
+            sum += (int) lat;
+        
+        pa.mSelector = kAudioDevicePropertySafetyOffset;
+        if (AudioObjectGetPropertyData (deviceID, &pa, 0, nullptr, &size, &lat) == noErr)
+            sum += (int) lat;
+        
+        return sum;
     }
 
     int getBitDepthFromDevice (AudioObjectPropertyScope scope) const
@@ -1280,7 +1295,7 @@ public:
         for (int i = 0; i < devices.size(); ++i)
             lat = jmax (lat, devices.getUnchecked(i)->device->getOutputLatencyInSamples());
 
-        return lat + currentBufferSize * 2;
+        return lat + currentBufferSize;
     }
 
     int getInputLatencyInSamples() override
@@ -1290,7 +1305,7 @@ public:
         for (int i = 0; i < devices.size(); ++i)
             lat = jmax (lat, devices.getUnchecked(i)->device->getInputLatencyInSamples());
 
-        return lat + currentBufferSize * 2;
+        return lat + currentBufferSize;
     }
 
     void start (AudioIODeviceCallback* newCallback) override
