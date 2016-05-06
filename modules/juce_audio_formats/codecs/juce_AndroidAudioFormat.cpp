@@ -5,6 +5,7 @@
 #define JNI_CLASS_MEMBERS(METHOD, STATICMETHOD, FIELD, STATICFIELD) \
 FIELD (bufferIndex,                    "bufferIndex",                    "I") \
 FIELD (dataSize,                       "dataSize",                       "I") \
+FIELD (dataOffset,                     "dataOffset",                     "I") \
 FIELD (presentationTimeInMicroseconds, "presentationTimeInMicroseconds", "J") \
 FIELD (dataBuffer,                     "dataBuffer",                     "Ljava/nio/ByteBuffer;")
 
@@ -43,17 +44,21 @@ public:
     samplesLeftInCurrentResult(0), currentData(nullptr)
     {
         FileInputStream * stream = dynamic_cast<FileInputStream *>(inp);
-        if (!stream) { return; }
+        if (!stream)
+        {
+            DBG("Trying to open file with AndroidAudioFormat, which is not a FileInputStream");
+            return;
+        }
         
         JNIEnv * env = getEnv();
         
         String filename = stream->getFile().getFullPathName();
         const LocalRef<jstring> jFilename (javaString (filename));
         decoder = GlobalRef(env->NewObject(AudioDecoder, AudioDecoder.constructor, jFilename.get()));
-        jobject error = decoder.callObjectMethod(AudioDecoder.getError);
+        jstring error = (jstring)decoder.callObjectMethod(AudioDecoder.getError);
         if (error)
         {
-            // TODO, log error?
+            DBG("AndroidAudioFormat returned error from Java: " << juceString(error));
             return;
         }
         
@@ -70,8 +75,11 @@ public:
     ~AndroidAudioReader()
     {
         releaseCurrentBuffer();
-        decoder.callVoidMethod(AudioDecoder.release);
-        decoder.clear();
+        if (decoder.get())
+        {
+            decoder.callVoidMethod(AudioDecoder.release);
+            decoder.clear();
+        }
     }
     
     //==============================================================================
@@ -97,21 +105,21 @@ public:
         int samplesLeftToCopy = numSamples;
         while (samplesLeftToCopy > 0)
         {
-            if (samplesLeftInCurrentResult <= 0)
+            while (samplesLeftInCurrentResult <= 0)
             {
                 if (!decode())
                 {
                     // EOF, should we assert something here?
-                    break;
+                    return true;
                 }
             }
             
-            int numSamples = std::min(samplesLeftToCopy, samplesLeftInCurrentResult);
+            int samplesAvailable = std::min(samplesLeftToCopy, samplesLeftInCurrentResult);
             ReadHelper<AudioData::Int32, AudioData::Int16, AudioData::LittleEndian>::read (destSamples, startOffsetInDestBuffer, numDestChannels,
-                                                                                           currentData, numChannels, numSamples);
-            samplesLeftToCopy -= numSamples;
-            samplesLeftInCurrentResult -= numSamples;
-            lastReadPosition += numSamples;
+                                                                                           currentData, numChannels, samplesAvailable);
+            samplesLeftToCopy -= samplesAvailable;
+            samplesLeftInCurrentResult -= samplesAvailable;
+            lastReadPosition += samplesAvailable;
         }
         
         return true;
@@ -129,6 +137,7 @@ private:
         int bufferIndex = env->GetIntField(readResult, AudioDecoderReadResult.bufferIndex);
         decoder.callVoidMethod(AudioDecoder.releaseBuffer, (jint) bufferIndex);
         readResult.clear();
+        samplesLeftInCurrentResult = 0;
         currentData = nullptr;
     }
     
@@ -144,10 +153,19 @@ private:
             return false;
         }
         
-        // TODO take channel count into account
-        samplesLeftInCurrentResult = env->GetIntField(readResult, AudioDecoderReadResult.dataSize) / 2;
+        // Data is 16-bit integers
+        int bytesPerSample = 2 * numChannels;
+        samplesLeftInCurrentResult = env->GetIntField(readResult, AudioDecoderReadResult.dataSize) / bytesPerSample;
+        
+        if (samplesLeftInCurrentResult == 0) { return true; }
+
+        long positionInUs = env->GetLongField(readResult, AudioDecoderReadResult.presentationTimeInMicroseconds);
+        lastReadPosition = positionInUs * sampleRate / (1000 * 1000);
+        
         jobject byteBuffer = env->GetObjectField(readResult, AudioDecoderReadResult.dataBuffer);
-        currentData = static_cast<int16_t *>(env->GetDirectBufferAddress(byteBuffer));
+        jint dataOffset = env->GetIntField(readResult, AudioDecoderReadResult.dataOffset);
+        currentData = reinterpret_cast<int16_t *>(static_cast<char *>(env->GetDirectBufferAddress(byteBuffer)) + dataOffset);
+        
         return true;
     }
     
