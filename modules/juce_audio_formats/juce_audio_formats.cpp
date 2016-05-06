@@ -85,6 +85,7 @@ namespace juce
 
 #if JUCE_ANDROID
  #undef JUCE_QUICKTIME
+ #include "codecs/juce_AndroidAudioFormat.cpp"
 #endif
 
 #include "format/juce_AudioFormat.cpp"

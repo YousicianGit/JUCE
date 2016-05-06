@@ -131,6 +131,10 @@ class AudioFormat;
 #include "codecs/juce_WindowsMediaAudioFormat.h"
 #include "sampler/juce_Sampler.h"
 
+#if JUCE_ANDROID
+ #include "codecs/juce_AndroidAudioFormat.h"
+#endif
+    
 }
 
 #endif   // JUCE_AUDIO_FORMATS_H_INCLUDED

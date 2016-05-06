@@ -73,6 +73,10 @@ void AudioFormatManager::registerBasicFormats()
    #if JUCE_USE_WINDOWS_MEDIA_FORMAT
     registerFormat (new WindowsMediaAudioFormat(), false);
    #endif
+    
+   #if JUCE_ANDROID
+    registerFormat(new AndroidAudioFormat(), false);
+   #endif
 }
 
 void AudioFormatManager::clearFormats()
