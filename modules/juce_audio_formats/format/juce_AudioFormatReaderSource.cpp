@@ -50,35 +50,26 @@ void AudioFormatReaderSource::getNextAudioBlock (const AudioSourceChannelInfo& i
 {
     if (info.numSamples > 0)
     {
-        const int64 start = nextPlayPos;
-
         if (looping)
         {
-            const int64 newStart = start % reader->lengthInSamples;
-            const int64 newEnd = (start + info.numSamples) % reader->lengthInSamples;
-
-            if (newEnd > newStart)
+            int read = 0;
+            while (read < info.numSamples)
             {
-                reader->read (info.buffer, info.startSample,
-                              (int) (newEnd - newStart), newStart, true, true);
+                const int64 start = nextPlayPos % reader->lengthInSamples;
+                const int numReadable = jmin((int)(reader->lengthInSamples - start), info.numSamples - read);
+                
+                reader->read (info.buffer, info.startSample + read,
+                              numReadable, start, true, true);
+                
+                read += numReadable;
+                nextPlayPos = (start + numReadable) % reader->lengthInSamples;
+                
             }
-            else
-            {
-                const int endSamps = (int) (reader->lengthInSamples - newStart);
-
-                reader->read (info.buffer, info.startSample,
-                              endSamps, newStart, true, true);
-
-                reader->read (info.buffer, info.startSample + endSamps,
-                              (int) newEnd, 0, true, true);
-            }
-
-            nextPlayPos = newEnd;
         }
         else
         {
             reader->read (info.buffer, info.startSample,
-                          info.numSamples, start, true, true);
+                          info.numSamples, nextPlayPos, true, true);
             nextPlayPos += info.numSamples;
         }
     }
