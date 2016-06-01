@@ -1,4 +1,10 @@
+    public boolean supportsMidiAndBluetooth()
+    {
+        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.M;
+    }
+
     //==============================================================================
+    @TargetApi(Build.VERSION_CODES.M)
     public class BluetoothManager extends ScanCallback
     {
         BluetoothManager()
@@ -45,7 +51,7 @@
 
         public boolean isBluetoothDevicePaired (String address)
         {
-            return getAndroidMidiDeviceManager().isBluetoothDevicePaired (address);
+            return ((MidiDeviceManager)getAndroidMidiDeviceManager()).isBluetoothDevicePaired (address);
         }
 
         public boolean pairBluetoothMidiDevice(String address)
@@ -64,7 +70,7 @@
 
             if (midiDevice != null)
             {
-                getAndroidMidiDeviceManager().addDeviceToList (midiDevice);
+                ((MidiDeviceManager)getAndroidMidiDeviceManager()).addDeviceToList (midiDevice);
                 return true;
             }
 
@@ -73,7 +79,7 @@
 
         public void unpairBluetoothMidiDevice (String address)
         {
-            getAndroidMidiDeviceManager().unpairBluetoothDevice (address);
+            ((MidiDeviceManager)getAndroidMidiDeviceManager()).unpairBluetoothDevice (address);
         }
 
         public void onScanFailed (int errorCode)
@@ -116,6 +122,7 @@
         private HashSet<String> bluetoothMidiDevices = new HashSet<String>();
     }
 
+    @TargetApi(Build.VERSION_CODES.M)
     public static class JuceMidiInputPort extends MidiReceiver implements JuceMidiPort
     {
         private native void handleReceive (long host, byte[] msg, int offset, int count, long timestamp);
@@ -255,6 +262,7 @@
         private MidiInputPort port;
     }
 
+    @TargetApi(Build.VERSION_CODES.M)
     public static class PhysicalMidiDevice
     {
         private static class MidiDeviceThread extends Thread
@@ -589,7 +597,44 @@
     }
 
     //==============================================================================
-    public class MidiDeviceManager extends MidiManager.DeviceCallback
+    public interface MidiDeviceManagerInterface
+    {
+        String[] getJuceAndroidMidiInputDevices();
+        String[] getJuceAndroidMidiOutputDevices();
+        JuceMidiPort openMidiInputPortWithJuceIndex(int index, long host);
+        JuceMidiPort openMidiOutputPortWithJuceIndex(int index);
+        String getInputPortNameForJuceIndex(int index);
+        String getOutputPortNameForJuceIndex(int index);
+    }
+
+    /**
+     * For devices not supporting MIDI (API < 23 - Build.VERSION_CODES.M).
+     */
+    public class MidiDeviceManagerFallback implements MidiDeviceManagerInterface
+    {
+        @Override
+        public String[] getJuceAndroidMidiInputDevices() { return new String[0]; }
+
+        @Override
+        public String[] getJuceAndroidMidiOutputDevices() { return new String[0]; }
+
+        @Override
+        public JuceMidiPort openMidiInputPortWithJuceIndex(int index, long host) { return null; }
+
+        @Override
+        public JuceMidiPort openMidiOutputPortWithJuceIndex(int index) { return null; }
+
+        @Override
+        public String getInputPortNameForJuceIndex(int index) { return ""; }
+
+        @Override
+        public String getOutputPortNameForJuceIndex(int index) { return ""; }
+    }
+
+    private native void midiDevicesChanged();
+
+    @TargetApi(Build.VERSION_CODES.M)
+    public class MidiDeviceManager extends MidiManager.DeviceCallback implements MidiDeviceManagerInterface
     {
         public class MidiPortPath
         {
@@ -669,11 +714,13 @@
             return false;
         }
 
+        @Override
         public String[] getJuceAndroidMidiInputDevices()
         {
             return getJuceAndroidMidiDevices (MidiDeviceInfo.PortInfo.TYPE_INPUT);
         }
 
+        @Override
         public String[] getJuceAndroidMidiOutputDevices()
         {
             return getJuceAndroidMidiDevices (MidiDeviceInfo.PortInfo.TYPE_OUTPUT);
@@ -721,6 +768,7 @@
             return deviceNames.toArray(deviceNamesArray);
         }
 
+        @Override
         public JuceMidiPort openMidiInputPortWithJuceIndex (int index, long host)
         {
             ArrayList<MidiPortPath> lastDevices = lastDevicesReturned.get().inPorts;
@@ -732,6 +780,7 @@
             return path.midiDevice.openPort (path.androidMidiPortID, true, host);
         }
 
+        @Override
         public JuceMidiPort openMidiOutputPortWithJuceIndex (int index)
         {
             ArrayList<MidiPortPath> lastDevices = lastDevicesReturned.get().outPorts;
@@ -743,6 +792,7 @@
             return path.midiDevice.openPort (path.androidMidiPortID, false, 0);
         }
 
+        @Override
         public String getInputPortNameForJuceIndex (int index)
         {
             ArrayList<MidiPortPath> lastDevices = lastDevicesReturned.get().inPorts;
@@ -757,6 +807,7 @@
                                                                 path.portIndexToUseInName);
         }
 
+        @Override
         public String getOutputPortNameForJuceIndex (int index)
         {
             ArrayList<MidiPortPath> lastDevices = lastDevicesReturned.get().outPorts;
@@ -771,6 +822,7 @@
                                                                 path.portIndexToUseInName);
         }
 
+        @Override
         public void onDeviceAdded (MidiDeviceInfo info)
         {
             PhysicalMidiDevice device = PhysicalMidiDevice.fromMidiDeviceInfo (info, manager);
@@ -780,6 +832,7 @@
                 physicalMidiDevices.add (device);
         }
 
+        @Override
         public void onDeviceRemoved (MidiDeviceInfo info)
         {
             for (int i = 0; i < physicalMidiDevices.size(); ++i)
@@ -793,6 +846,7 @@
             // Don't assert here as this may be called again after a bluetooth device is unpaired
         }
 
+        @Override
         public void onDeviceStatusChanged (MidiDeviceStatus status)
         {
         }
@@ -801,7 +855,7 @@
         private MidiManager manager;
     }
 
-    public MidiDeviceManager getAndroidMidiDeviceManager()
+    public MidiDeviceManagerInterface getAndroidMidiDeviceManager()
     {
         if (getSystemService (MIDI_SERVICE) == null)
             return null;
@@ -809,14 +863,23 @@
         synchronized (JuceAppActivity.class)
         {
             if (midiDeviceManager == null)
-                midiDeviceManager = new MidiDeviceManager();
+            {
+                if (supportsMidiAndBluetooth())
+                    midiDeviceManager = new MidiDeviceManager();
+                else
+                    midiDeviceManager = new MidiDeviceManagerFallback();
+            }
         }
 
         return midiDeviceManager;
     }
 
+    @SuppressLint("NewApi")
     public BluetoothManager getAndroidBluetoothManager()
     {
+        if (!supportsMidiAndBluetooth())
+            return null;
+
         BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
 
         if (adapter == null)

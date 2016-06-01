@@ -24,6 +24,8 @@
 
 package com.juce;
 
+import android.annotation.SuppressLint;
+import android.annotation.TargetApi;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
@@ -33,6 +35,7 @@ import android.content.res.Configuration;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Looper;
 import android.os.Handler;
@@ -312,7 +315,7 @@ public class JuceAppActivity   extends Activity
 
     //==============================================================================
     private ViewHolder viewHolder;
-    private MidiDeviceManager midiDeviceManager = null;
+    private MidiDeviceManagerInterface midiDeviceManager = null;
     private BluetoothManager bluetoothManager = null;
     private boolean isScreenSaverEnabled;
     private java.util.Timer keepAliveTimer;
