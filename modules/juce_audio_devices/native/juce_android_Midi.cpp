@@ -401,6 +401,11 @@ JUCE_JNI_CALLBACK(JUCE_ANDROID_ACTIVITY_CLASSNAME, midiDevicesChanged, void, (JN
     getMidiChangeDetector().emitMidiDevicesChanged();
 }
 
+bool MidiSetup::supportsMidi()
+{
+    return android.activity.callBooleanMethod(JuceAppActivity.supportsMidiAndBluetooth);
+}
+
 void MidiSetup::addListener(MidiSetupListener* const listener)
 {
     getMidiChangeDetector().addListener(listener);

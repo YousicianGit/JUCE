@@ -537,6 +537,11 @@ void MidiOutput::sendMessageNow (const MidiMessage& message)
     }
 }
 
+bool MidiSupport::supportsMidi()
+{
+    return true;
+}
+
 void MidiSetup::addListener(MidiSetupListener* const l)
 {
     getMidiChangeDetector().addListener(l);

@@ -21,6 +21,7 @@ public:
 class JUCE_API  MidiSetup
 {
 public:
+    static bool supportsMidi ();
     static void addListener (MidiSetupListener * const listener);
     static void removeListener (MidiSetupListener * const listener);
 };
