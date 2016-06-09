@@ -537,7 +537,7 @@ void MidiOutput::sendMessageNow (const MidiMessage& message)
     }
 }
 
-bool MidiSupport::supportsMidi()
+bool MidiSetup::supportsMidi()
 {
     return true;
 }
