@@ -830,6 +830,8 @@
             // Do not add bluetooth devices as they are already added by the native bluetooth dialog
             if (info.getType() != MidiDeviceInfo.TYPE_BLUETOOTH)
                 physicalMidiDevices.add (device);
+
+            midiDevicesChanged();
         }
 
         @Override
@@ -840,6 +842,7 @@
                 if (physicalMidiDevices.get(i).info.getId() == info.getId())
                 {
                     physicalMidiDevices.remove (i);
+                    midiDevicesChanged();
                     return;
                 }
             }
