@@ -1,6 +1,12 @@
     public boolean supportsMidiAndBluetooth()
     {
-        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.M;
+        // Android introduced MIDI support in the API with version 23. In addition, we have
+        // observer empirically that only devices with audio.pro and audio.low_latency can
+        // detect and interact with MIDI devices.
+
+        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
+            && hasSystemFeature("android.hardware.audio.pro")
+            && hasSystemFeature("android.hardware.audio.low_latency");
     }
 
     //==============================================================================
