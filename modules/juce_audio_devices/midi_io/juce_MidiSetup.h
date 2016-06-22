@@ -21,15 +21,9 @@ public:
 class JUCE_API  MidiSetup
 {
 public:
-
-    #if JUCE_MAC || JUCE_IOS || JUCE_WINDOWS || DOXYGEN
-    /** Listen to setup changes (Only available on iOS, OS X and Windows).
-
-     */
+    static bool supportsMidi ();
     static void addListener (MidiSetupListener * const listener);
     static void removeListener (MidiSetupListener * const listener);
-
-    #endif
 };
 
 

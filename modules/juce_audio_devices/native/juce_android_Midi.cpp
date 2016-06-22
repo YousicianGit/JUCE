@@ -29,7 +29,7 @@
  METHOD (openMidiOutputPortWithJuceIndex, "openMidiOutputPortWithJuceIndex", "(I)L" JUCE_ANDROID_ACTIVITY_CLASSPATH "$JuceMidiPort;") \
  METHOD (getInputPortNameForJuceIndex, "getInputPortNameForJuceIndex", "(I)Ljava/lang/String;") \
  METHOD (getOutputPortNameForJuceIndex, "getOutputPortNameForJuceIndex", "(I)Ljava/lang/String;")
- DECLARE_JNI_CLASS (MidiDeviceManager, JUCE_ANDROID_ACTIVITY_CLASSPATH "$MidiDeviceManager")
+ DECLARE_JNI_CLASS (MidiDeviceManager, JUCE_ANDROID_ACTIVITY_CLASSPATH "$MidiDeviceManagerInterface")
 #undef JNI_CLASS_MEMBERS
 
 #define JNI_CLASS_MEMBERS(METHOD, STATICMETHOD, FIELD, STATICFIELD) \
@@ -358,4 +358,60 @@ void MidiInput::stop()
 MidiInput::~MidiInput()
 {
     delete reinterpret_cast<AndroidMidiInput*> (internal);
+}
+
+class MidiChangeDetector
+{
+public:
+    void addListener(MidiSetupListener* const listener)
+    {
+        listeners.addIfNotAlreadyThere(listener);
+    }
+
+    void removeListener(MidiSetupListener* const listener)
+    {
+        listeners.removeFirstMatchingValue(listener);
+    }
+
+    void emitMidiDevicesChanged()
+    {
+        for (auto& listener : listeners)
+        {
+            listener->midiDevicesChanged();
+        }
+    }
+
+private:
+    Array<MidiSetupListener*> listeners;
+};
+
+namespace {
+
+MidiChangeDetector& getMidiChangeDetector()
+{
+    static MidiChangeDetector detector;
+    return detector;
+}
+
+}
+
+JUCE_JNI_CALLBACK(JUCE_ANDROID_ACTIVITY_CLASSNAME, midiDevicesChanged, void, (JNIEnv* env, jobject))
+{
+    setEnv(env);
+    getMidiChangeDetector().emitMidiDevicesChanged();
+}
+
+bool MidiSetup::supportsMidi()
+{
+    return android.activity.callBooleanMethod(JuceAppActivity.supportsMidiAndBluetooth);
+}
+
+void MidiSetup::addListener(MidiSetupListener* const listener)
+{
+    getMidiChangeDetector().addListener(listener);
+}
+
+void MidiSetup::removeListener(MidiSetupListener* const listener)
+{
+    getMidiChangeDetector().removeListener(listener);
 }

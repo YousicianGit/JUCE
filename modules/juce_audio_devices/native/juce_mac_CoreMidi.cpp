@@ -569,6 +569,11 @@ void MidiInput::stop()
 
 //==============================================================================
 
+bool MidiSetup::supportsMidi()
+{
+    return true;
+}
+
 void MidiSetup::addListener (MidiSetupListener * const listener)
 {
     auto & state = CoreMidiHelpers::getGlobalMidiSetupState();
