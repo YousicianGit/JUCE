@@ -597,6 +597,10 @@ MidiInput* MidiInput::createNewDevice (const String& deviceName, MidiInputCallba
 }
 
 
+bool MidiSetup::supportsMidi() { return false; }
+void MidiSetup::addListener(MidiSetupListener* const listener) { }
+void MidiSetup::removeListener(MidiSetupListener* const listener) { }
+
 //==============================================================================
 #else
 
@@ -617,5 +621,9 @@ int MidiInput::getDefaultDeviceIndex()      { return 0; }
 StringArray MidiInput::getDevices()         { return StringArray(); }
 MidiInput* MidiInput::openDevice (int, MidiInputCallback*)                  { return nullptr; }
 MidiInput* MidiInput::createNewDevice (const String&, MidiInputCallback*)   { return nullptr; }
+
+bool MidiSetup::supportsMidi() { return false; }
+void MidiSetup::addListener(MidiSetupListener* const listener) { }
+void MidiSetup::removeListener(MidiSetupListener* const listener) { }
 
 #endif
