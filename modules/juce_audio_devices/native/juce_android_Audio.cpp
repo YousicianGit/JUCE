@@ -56,6 +56,7 @@ enum
     CHANNEL_OUT_STEREO  = 12,
     CHANNEL_IN_STEREO   = 12,
     CHANNEL_IN_MONO     = 16,
+    CHANNEL_OUT_MONO    = 4,
     ENCODING_PCM_16BIT  = 2,
     STREAM_MUSIC        = 3,
     MODE_STREAM         = 1,
@@ -83,9 +84,19 @@ public:
         JNIEnv* env = getEnv();
         sampleRate = env->CallStaticIntMethod (AudioTrack, AudioTrack.getNativeOutputSampleRate, MODE_STREAM);
 
-        minBufferSizeOut = (int) env->CallStaticIntMethod (AudioTrack,  AudioTrack.getMinBufferSize,  sampleRate, CHANNEL_OUT_STEREO, ENCODING_PCM_16BIT);
-        minBufferSizeIn  = (int) env->CallStaticIntMethod (AudioRecord, AudioRecord.getMinBufferSize, sampleRate, CHANNEL_IN_STEREO,  ENCODING_PCM_16BIT);
+        minBufferSizeOut = (int) env->CallStaticIntMethod (AudioTrack,  AudioTrack.getMinBufferSize, sampleRate, CHANNEL_OUT_STEREO, ENCODING_PCM_16BIT);
+        if (minBufferSizeOut <= 0)
+        {
+            minBufferSizeOut = (int) env->CallStaticIntMethod (AudioTrack,  AudioTrack.getMinBufferSize, sampleRate,
+                CHANNEL_OUT_MONO, ENCODING_PCM_16BIT);
+            numDeviceOutputChannelsAvailable = minBufferSizeOut > 0 ? 1 : 0;
+        }
+        else
+        {
+            numDeviceOutputChannelsAvailable = 2;
+        }
 
+        minBufferSizeIn  = (int) env->CallStaticIntMethod (AudioRecord, AudioRecord.getMinBufferSize, sampleRate, CHANNEL_IN_STEREO,  ENCODING_PCM_16BIT);
         if (minBufferSizeIn <= 0)
         {
             minBufferSizeIn = env->CallStaticIntMethod (AudioRecord, AudioRecord.getMinBufferSize, sampleRate, CHANNEL_IN_MONO, ENCODING_PCM_16BIT);
@@ -108,8 +119,18 @@ public:
     StringArray getOutputChannelNames() override
     {
         StringArray s;
-        s.add ("Left");
-        s.add ("Right");
+        switch(numDeviceOutputChannelsAvailable)
+        {
+        case 2:
+            s.add("Left");
+            s.add("Right");
+            break;
+        case 1:
+            s.add("Audio Output");
+        default:
+            break;
+        }
+
         return s;
     }
 
@@ -188,11 +209,13 @@ public:
 
         JNIEnv* env = getEnv();
 
-        if (numClientOutputChannels > 0)
+        numDeviceOutputChannels = std::min(numClientOutputChannels, numDeviceOutputChannelsAvailable);
+        if (numDeviceOutputChannels > 0)
         {
-            numDeviceOutputChannels = 2;
             outputDevice = GlobalRef (env->NewObject (AudioTrack, AudioTrack.constructor,
-                                                      STREAM_MUSIC, sampleRate, CHANNEL_OUT_STEREO, ENCODING_PCM_16BIT,
+                                                      STREAM_MUSIC, sampleRate,
+                                                      numDeviceOutputChannels == 2 ? CHANNEL_OUT_STEREO : CHANNEL_OUT_MONO,
+                                                      ENCODING_PCM_16BIT,
                                                       (jint) (minBufferSizeOut * numDeviceOutputChannels * sizeof (int16)), MODE_STREAM));
 
             int outputDeviceState = env->CallIntMethod (outputDevice, AudioTrack.getState);
@@ -224,7 +247,7 @@ public:
                 numDeviceInputChannels = jmin (numClientInputChannels, numDeviceInputChannelsAvailable);
                 inputDevice = GlobalRef (env->NewObject (AudioRecord, AudioRecord.constructor,
                                                          0 /* (default audio source) */, sampleRate,
-                                                         numDeviceInputChannelsAvailable > 1 ? CHANNEL_IN_STEREO : CHANNEL_IN_MONO,
+                                                         numDeviceInputChannels == 2 ? CHANNEL_IN_STEREO : CHANNEL_IN_MONO,
                                                          ENCODING_PCM_16BIT,
                                                          (jint) (minBufferSizeIn * numDeviceInputChannels * sizeof (int16))));
 
@@ -354,8 +377,8 @@ public:
 
                 if (callback != nullptr)
                 {
-                    callback->audioDeviceIOCallback (inputChannelBuffer.getArrayOfReadPointers(), numClientInputChannels,
-                                                     outputChannelBuffer.getArrayOfWritePointers(), numClientOutputChannels,
+                    callback->audioDeviceIOCallback (inputChannelBuffer.getArrayOfReadPointers(), numDeviceInputChannels,
+                                                     outputChannelBuffer.getArrayOfWritePointers(), numDeviceOutputChannels,
                                                      actualBufferSize);
                 }
                 else
@@ -399,7 +422,7 @@ private:
     AudioIODeviceCallback* callback;
     jint sampleRate;
     int numClientInputChannels, numDeviceInputChannels, numDeviceInputChannelsAvailable;
-    int numClientOutputChannels, numDeviceOutputChannels;
+    int numClientOutputChannels, numDeviceOutputChannels, numDeviceOutputChannelsAvailable;
     int actualBufferSize;
     bool isRunning;
     String lastError;
