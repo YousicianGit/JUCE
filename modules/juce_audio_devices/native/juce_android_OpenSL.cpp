@@ -47,6 +47,10 @@ public:
         // get a number for this is by asking the AudioTrack/AudioRecord classes..
         AndroidAudioIODevice javaDevice (deviceName);
 
+        // Maximum 2 channels in/out
+        numDeviceInputChannels = javaDevice.getInputChannelNames().size();
+        numDeviceOutputChannels = javaDevice.getOutputChannelNames().size();
+
         // this is a total guess about how to calculate the latency, but seems to vaguely agree
         // with the devices I've tested.. YMMV
         inputLatency  = (javaDevice.minBufferSizeIn  * 2) / 3;
@@ -68,15 +72,36 @@ public:
     StringArray getOutputChannelNames() override
     {
         StringArray s;
-        s.add ("Left");
-        s.add ("Right");
+        switch(numDeviceOutputChannels)
+        {
+        case 2:
+            s.add("Left");
+            s.add("Right");
+            break;
+        case 1:
+            s.add("Audio Output");
+        default:
+            break;
+        }
+
         return s;
     }
 
     StringArray getInputChannelNames() override
     {
         StringArray s;
-        s.add ("Audio Input");
+        switch(numDeviceInputChannels)
+        {
+        case 2:
+            s.add("Left");
+            s.add("Right");
+            break;
+        case 1:
+            s.add("Audio Input");
+        default:
+            break;
+        }
+
         return s;
     }
 
@@ -121,11 +146,11 @@ public:
 
         activeOutputChans = outputChannels;
         activeOutputChans.setRange (2, activeOutputChans.getHighestBit(), false);
-        numOutputChannels = activeOutputChans.countNumberOfSetBits();
+        numOutputChannels = std::min(std::max(activeOutputChans.countNumberOfSetBits(), 0), numDeviceOutputChannels);
 
         activeInputChans = inputChannels;
         activeInputChans.setRange (1, activeInputChans.getHighestBit(), false);
-        numInputChannels = activeInputChans.countNumberOfSetBits();
+        numInputChannels = std::min(std::max(activeInputChans.countNumberOfSetBits(), 0), numDeviceInputChannels);
 
         actualBufferSize = preferredBufferSize;
 
@@ -248,6 +273,8 @@ private:
     String lastError;
     BigInteger activeOutputChans, activeInputChans;
     int numInputChannels, numOutputChannels;
+    int numDeviceInputChannels;
+    int numDeviceOutputChannels;
     AudioSampleBuffer inputBuffer, outputBuffer;
     struct Player;
     struct Recorder;
