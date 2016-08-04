@@ -47,8 +47,7 @@ public:
         // get a number for this is by asking the AudioTrack/AudioRecord classes..
         AndroidAudioIODevice javaDevice (deviceName);
 
-        // Maximum 2 channels in/out
-        numDeviceInputChannels = javaDevice.getInputChannelNames().size();
+        // Maximum 2 output channels
         numDeviceOutputChannels = javaDevice.getOutputChannelNames().size();
 
         // this is a total guess about how to calculate the latency, but seems to vaguely agree
@@ -90,18 +89,7 @@ public:
     StringArray getInputChannelNames() override
     {
         StringArray s;
-        switch(numDeviceInputChannels)
-        {
-        case 2:
-            s.add("Left");
-            s.add("Right");
-            break;
-        case 1:
-            s.add("Audio Input");
-        default:
-            break;
-        }
-
+        s.add ("Audio Input");
         return s;
     }
 
@@ -150,7 +138,7 @@ public:
 
         activeInputChans = inputChannels;
         activeInputChans.setRange (1, activeInputChans.getHighestBit(), false);
-        numInputChannels = std::min(std::max(activeInputChans.countNumberOfSetBits(), 0), numDeviceInputChannels);
+        numInputChannels = activeInputChans.countNumberOfSetBits();
 
         actualBufferSize = preferredBufferSize;
 
@@ -273,7 +261,6 @@ private:
     String lastError;
     BigInteger activeOutputChans, activeInputChans;
     int numInputChannels, numOutputChannels;
-    int numDeviceInputChannels;
     int numDeviceOutputChannels;
     AudioSampleBuffer inputBuffer, outputBuffer;
     struct Player;
