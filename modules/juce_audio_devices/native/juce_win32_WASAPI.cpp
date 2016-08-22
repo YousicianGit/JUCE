@@ -400,7 +400,7 @@ public:
             // Got a format that is supported by the device so we can ask what sample rates are supported (in whatever format)
         }
 
-        static const int ratesToTest[] = { 44100, 48000, 88200, 96000, 176400, 192000, 352800, 384000 };
+        static const int ratesToTest[] = { 16000, 44100, 48000, 88200, 96000, 176400, 192000, 352800, 384000 };
 
         for (int i = 0; i < numElementsInArray (ratesToTest); ++i)
         {
