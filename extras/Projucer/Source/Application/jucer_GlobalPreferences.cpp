@@ -27,21 +27,6 @@
 #include "../Utility/jucer_FloatingToolWindow.h"
 #include "../Utility/jucer_ColourPropertyComponent.h"
 
-
-//==============================================================================
-class AppearanceSettingsTab  : public GlobalPreferencesTab,
-                               public Component
-{
-public:
-    AppearanceSettingsTab();
-
-    Component* getContent() override;
-    void changeContent (Component* newContent);
-    String getName() const noexcept override;
-
-    ScopedPointer<Component> content;
-};
-
 //==============================================================================
 PathSettingsTab::PathSettingsTab (DependencyPathOS os)
 {
@@ -49,7 +34,6 @@ PathSettingsTab::PathSettingsTab (DependencyPathOS os)
 
     StoredSettings& settings = getAppSettings();
 
-    vst2PathComponent       = pathComponents.add (new TextPropertyComponent (settings.getGlobalPath (Ids::vst2Path, os), "VST SDK",  maxChars, false));
     vst3PathComponent       = pathComponents.add (new TextPropertyComponent (settings.getGlobalPath (Ids::vst3Path, os), "VST3 SDK", maxChars, false));
 
    #if ! JUCE_LINUX
@@ -85,7 +69,6 @@ void PathSettingsTab::textPropertyComponentChanged (TextPropertyComponent* textP
 
 Identifier PathSettingsTab::getKeyForPropertyComponent (TextPropertyComponent* component) const
 {
-    if (component == vst2PathComponent)       return Ids::vst2Path;
     if (component == vst3PathComponent)       return Ids::vst3Path;
     if (component == rtasPathComponent)       return Ids::rtasPath;
     if (component == aaxPathComponent)        return Ids::aaxPath;
@@ -94,7 +77,7 @@ Identifier PathSettingsTab::getKeyForPropertyComponent (TextPropertyComponent* c
 
     // this property component does not have a key associated to it!
     jassertfalse;
-    return String::empty;
+    return String();
 }
 
 Component* PathSettingsTab::getContent()
@@ -303,7 +286,7 @@ struct AppearanceEditor
 
             StringArray names;
             names.add ("<Default Monospaced>");
-            names.add (String::empty);
+            names.add (String());
             names.addArray (getAppSettings().monospacedFontNames);
 
             return new ChoicePropertyComponent (Value (new FontNameValueSource (value)),
@@ -365,13 +348,18 @@ Component* AppearanceSettingsTab::getContent()
 void AppearanceSettingsTab::changeContent (Component* newContent)
 {
     content = newContent;
-    addAndMakeVisible(content);
-    content->setBoundsInset(BorderSize<int>());
+    addAndMakeVisible (content);
+    content->setBounds (getLocalBounds());
 }
 
 String AppearanceSettingsTab::getName() const noexcept
 {
     return "Code Editor";
+}
+
+void AppearanceSettingsTab::resized()
+{
+    content->setBounds (getLocalBounds());
 }
 
 //==============================================================================

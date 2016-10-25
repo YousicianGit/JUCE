@@ -107,7 +107,7 @@ String ProjectExporter::getCurrentPlatformExporterName()
    #if JUCE_MAC
     return XCodeProjectExporter::getNameMac();
    #elif JUCE_WINDOWS
-    return MSVCProjectExporterVC2010::getName();
+    return MSVCProjectExporterVC2015::getName();
    #elif JUCE_LINUX
     return MakefileProjectExporter::getNameLinux();
    #else
@@ -189,6 +189,8 @@ ProjectExporter::~ProjectExporter()
 {
 }
 
+void ProjectExporter::updateDeprecatedProjectSettingsInteractively() {}
+
 File ProjectExporter::getTargetFolder() const
 {
     return project.resolveFilename (getTargetLocationString());
@@ -240,28 +242,22 @@ void ProjectExporter::createPropertyEditors (PropertyListBuilder& props)
 
 void ProjectExporter::createDependencyPathProperties (PropertyListBuilder& props)
 {
-    if (supportsVST() && (project.shouldBuildVST().getValue() || project.isVSTPluginHost()))
-    {
-        props.add (new DependencyPathPropertyComponent (getVSTPathValue (false), "VST SDK Folder"),
-                   "If you're building a VST plugin or host, this must be the folder containing the VST SDK. This should be an absolute path.");
-    }
-
     if (supportsVST3() && (project.shouldBuildVST3().getValue() || project.isVST3PluginHost()))
     {
-        props.add (new DependencyPathPropertyComponent (getVSTPathValue (true), "VST3 SDK Folder"),
-                   "If you're building a VST3 plugin or host, this must be the folder containing the VST3 SDK. This should be an absolute path.");
+        props.add (new DependencyPathPropertyComponent (getVST3PathValue(), "VST3 SDK Folder"),
+                   "If you're building a VST3 plugin or host, this must be the folder containing the VST3 SDK. This can be an absolute path, or a path relative to the Projucer project file.");
     }
 
     if (supportsAAX() && project.shouldBuildAAX().getValue())
     {
         props.add (new DependencyPathPropertyComponent (getAAXPathValue(), "AAX SDK Folder"),
-                   "If you're building an AAX plugin, this must be the folder containing the AAX SDK. This should be an absolute path.");
+                   "If you're building an AAX plugin, this must be the folder containing the AAX SDK. This can be an absolute path, or a path relative to the Projucer project file.");
     }
 
     if (supportsRTAS() && project.shouldBuildRTAS().getValue())
     {
         props.add (new DependencyPathPropertyComponent (getRTASPathValue(), "RTAS SDK Folder"),
-                   "If you're building an RTAS, this must be the folder containing the RTAS SDK. This should be an absolute path.");
+                   "If you're building an RTAS, this must be the folder containing the RTAS SDK. This can be an absolute path, or a path relative to the Projucer project file.");
     }
 }
 
@@ -274,9 +270,9 @@ void ProjectExporter::createIconProperties (PropertyListBuilder& props)
     Array<var> ids;
 
     choices.add ("<None>");
-    ids.add (var::null);
-    choices.add (String::empty);
-    ids.add (var::null);
+    ids.add (var());
+    choices.add (String());
+    ids.add (var());
 
     for (int i = 0; i < images.size(); ++i)
     {
@@ -304,15 +300,16 @@ void ProjectExporter::addSettingsForProjectType (const ProjectType& type)
 
 void ProjectExporter::addVSTPathsIfPluginOrHost()
 {
-    if (supportsVST() && (project.shouldBuildVST().getValue() || project.isVSTPluginHost()))
-    {
+    if (supportsVST() && project.shouldBuildVST().getValue())
         makefileTargetSuffix = ".so";
-        addVSTFolderToPath (false);
-    }
-    if (supportsVST3() && (project.shouldBuildVST3().getValue() || project.isVST3PluginHost()))
+
+    if (supportsVST3())
     {
-        makefileTargetSuffix = ".so";
-        addVSTFolderToPath (true);
+        if (project.shouldBuildVST3().getValue())
+            makefileTargetSuffix = ".so";
+
+        if (project.shouldBuildVST3().getValue() || project.isVST3PluginHost())
+            addVST3FolderToPath();
     }
 }
 
@@ -327,12 +324,12 @@ void ProjectExporter::addCommonAudioPluginSettings()
     // Note: RTAS paths are platform-dependent, impl -> addPlatformSpecificSettingsForProjectType
  }
 
-void ProjectExporter::addVSTFolderToPath (bool isVST3)
+void ProjectExporter::addVST3FolderToPath()
 {
-    const String vstFolder (getVSTPathValue (isVST3).toString());
+    const String vst3Folder (getVST3PathValue().toString());
 
-    if (vstFolder.isNotEmpty())
-        addToExtraSearchPaths (RelativePath (vstFolder, RelativePath::projectFolder), 0);
+    if (vst3Folder.isNotEmpty())
+        addToExtraSearchPaths (RelativePath (vst3Folder, RelativePath::projectFolder), 0);
 }
 
 void ProjectExporter::addAAXFoldersToPath()
@@ -822,7 +819,7 @@ String ProjectExporter::BuildConfiguration::getGCCLibraryPathFlags() const
     const StringArray libraryPaths (getLibrarySearchPaths());
 
     for (int i = 0; i < libraryPaths.size(); ++i)
-        s << " -L" << escapeSpaces (libraryPaths[i]);
+        s << " -L" << escapeSpaces (libraryPaths[i]).replace ("~", "$(HOME)");
 
     return s;
 }
@@ -836,5 +833,5 @@ String ProjectExporter::getExternalLibraryFlags (const BuildConfiguration& confi
     if (libraries.size() != 0)
         return replacePreprocessorTokens (config, "-l" + libraries.joinIntoString (" -l")).trim();
 
-    return String::empty;
+    return String();
 }

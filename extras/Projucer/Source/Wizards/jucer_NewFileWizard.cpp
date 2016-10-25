@@ -56,7 +56,7 @@ public:
 
     String getName() override  { return "CPP File"; }
 
-    void createNewFile (Project::Item parent) override
+    void createNewFile (Project&, Project::Item parent) override
     {
         const File newFile (askUserToChooseNewFile ("SourceCode.cpp", "*.cpp", parent));
 
@@ -85,7 +85,7 @@ public:
 
     String getName() override  { return "Header File"; }
 
-    void createNewFile (Project::Item parent) override
+    void createNewFile (Project&, Project::Item parent) override
     {
         const File newFile (askUserToChooseNewFile ("SourceCode.h", "*.h", parent));
 
@@ -114,7 +114,7 @@ public:
 
     String getName() override  { return "CPP & Header File"; }
 
-    void createNewFile (Project::Item parent) override
+    void createNewFile (Project&, Project::Item parent) override
     {
         const File newFile (askUserToChooseNewFile ("SourceCode.h", "*.h;*.cpp", parent));
 
@@ -134,7 +134,7 @@ public:
 
     String getName() override  { return "Component class (split between a CPP & header)"; }
 
-    void createNewFile (Project::Item parent) override
+    void createNewFile (Project&, Project::Item parent) override
     {
         for (;;)
         {
@@ -142,7 +142,7 @@ public:
                             TRANS ("Please enter the name for the new class"),
                             AlertWindow::NoIcon, nullptr);
 
-            aw.addTextEditor (getClassNameFieldName(), String::empty, String::empty, false);
+            aw.addTextEditor (getClassNameFieldName(), String(), String(), false);
             aw.addButton (TRANS ("Create Files"),  1, KeyPress (KeyPress::returnKey));
             aw.addButton (TRANS ("Cancel"),        0, KeyPress (KeyPress::escapeKey));
 
@@ -249,11 +249,11 @@ void NewFileWizard::addWizardsToMenu (PopupMenu& m) const
         m.addItem (menuBaseID + i, "Add New " + wizards.getUnchecked(i)->getName() + "...");
 }
 
-bool NewFileWizard::runWizardFromMenu (int chosenMenuItemID, const Project::Item& projectGroupToAddTo) const
+bool NewFileWizard::runWizardFromMenu (int chosenMenuItemID, Project& project, const Project::Item& projectGroupToAddTo) const
 {
     if (Type* wiz = wizards [chosenMenuItemID - menuBaseID])
     {
-        wiz->createNewFile (projectGroupToAddTo);
+        wiz->createNewFile (project, projectGroupToAddTo);
         return true;
     }
 

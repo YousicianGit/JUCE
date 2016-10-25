@@ -62,8 +62,8 @@ public:
     {
         TreeView* tree = getOwnerView();
         const int numSelected = tree->getNumSelectedItems();
-        OwnedArray <File> filesToTrash;
-        OwnedArray <Project::Item> itemsToRemove;
+        OwnedArray<File> filesToTrash;
+        OwnedArray<Project::Item> itemsToRemove;
 
         for (int i = 0; i < numSelected; ++i)
         {
@@ -140,7 +140,7 @@ public:
     virtual void browseToAddExistingFiles()
     {
         const File location (item.isGroup() ? item.determineGroupFolder() : getFile());
-        FileChooser fc ("Add Files to Jucer Project", location, String::empty, false);
+        FileChooser fc ("Add Files to Jucer Project", location, String(), false);
 
         if (fc.browseForMultipleFilesOrDirectories())
         {
@@ -156,7 +156,7 @@ public:
     virtual void checkFileStatus()  // (recursive)
     {
         const File file (getFile());
-        const bool nowMissing = file != File::nonexistent && ! file.exists();
+        const bool nowMissing = file != File() && ! file.exists();
 
         if (nowMissing != isFileMissing)
         {
@@ -235,7 +235,7 @@ public:
     bool mightContainSubItems() override                { return item.getNumChildren() > 0; }
     String getUniqueName() const override               { jassert (item.getID().isNotEmpty()); return item.getID(); }
     bool canBeSelected() const override                 { return true; }
-    String getTooltip() override                        { return String::empty; }
+    String getTooltip() override                        { return String(); }
     File getDraggableFile() const override              { return getFile(); }
 
     var getDragSourceDescription() override
@@ -352,9 +352,8 @@ protected:
 
     void triggerAsyncRename (const Project::Item& itemToRename)
     {
-        class RenameMessage  : public CallbackMessage
+        struct RenameMessage  : public CallbackMessage
         {
-        public:
             RenameMessage (TreeView* const t, const Project::Item& i)
                 : tree (t), itemToRename (i)  {}
 
@@ -374,7 +373,7 @@ protected:
         (new RenameMessage (getOwnerView(), itemToRename))->post();
     }
 
-    static void moveItems (OwnedArray <Project::Item>& selectedNodes, Project::Item destNode, int insertIndex)
+    static void moveItems (OwnedArray<Project::Item>& selectedNodes, Project::Item destNode, int insertIndex)
     {
         for (int i = selectedNodes.size(); --i >= 0;)
         {

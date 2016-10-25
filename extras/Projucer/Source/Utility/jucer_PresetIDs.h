@@ -55,11 +55,9 @@ namespace Ids
     DECLARE_ID (intermediatesPath);
     DECLARE_ID (modulePaths);
     DECLARE_ID (searchpaths);
-    DECLARE_ID (vstFolder);
     DECLARE_ID (vst3Folder);
     DECLARE_ID (rtasFolder);
     DECLARE_ID (auFolder);
-    DECLARE_ID (vst2Path);
     DECLARE_ID (vst3Path);
     DECLARE_ID (rtasPath);
     DECLARE_ID (aaxPath);
@@ -90,6 +88,12 @@ namespace Ids
     DECLARE_ID (codeSigningIdentity);
     DECLARE_ID (fastMath);
     DECLARE_ID (linkTimeOptimisation);
+    DECLARE_ID (stripLocalSymbols);
+    DECLARE_ID (xcodeVstBinaryLocation);
+    DECLARE_ID (xcodeVst3BinaryLocation);
+    DECLARE_ID (xcodeAudioUnitBinaryLocation);
+    DECLARE_ID (xcodeRtasBinaryLocation);
+    DECLARE_ID (xcodeAaxBinaryLocation);
     DECLARE_ID (osxSDK);
     DECLARE_ID (osxCompatibility);
     DECLARE_ID (osxArchitecture);
@@ -108,9 +112,11 @@ namespace Ids
     DECLARE_ID (jucerVersion);
     DECLARE_ID (prebuildCommand);
     DECLARE_ID (postbuildCommand);
+    DECLARE_ID (internalPostBuildComamnd);
     DECLARE_ID (generateManifest);
     DECLARE_ID (useRuntimeLibDLL);
     DECLARE_ID (wholeProgramOptimisation);
+    DECLARE_ID (enableIncrementalLinking);
     DECLARE_ID (buildVST);
     DECLARE_ID (bundleIdentifier);
     DECLARE_ID (aaxIdentifier);
@@ -159,7 +165,6 @@ namespace Ids
     DECLARE_ID (androidTheme);
     DECLARE_ID (androidStaticLibraries);
     DECLARE_ID (androidSharedLibraries);
-    DECLARE_ID (androidNdkPlatformVersion);
     DECLARE_ID (androidScreenOrientation);
     DECLARE_ID (iosScreenOrientation);
     DECLARE_ID (iosInAppPurchases);
@@ -171,6 +176,7 @@ namespace Ids
     DECLARE_ID (gradleWrapperVersion);
     DECLARE_ID (gradleToolchain);
     DECLARE_ID (gradleToolchainVersion);
+    DECLARE_ID (linuxExtraPkgConfig);
     DECLARE_ID (font);
     DECLARE_ID (colour);
     DECLARE_ID (userNotes);

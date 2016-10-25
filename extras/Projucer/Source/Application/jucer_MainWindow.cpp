@@ -202,6 +202,9 @@ bool MainWindow::openFile (const File& file)
             jassert (getProjectContentComponent() != nullptr);
             getProjectContentComponent()->reloadLastOpenDocuments();
 
+            if (Project* p = getProject())
+                p->updateDeprecatedProjectSettingsInteractively();
+
             return true;
         }
     }
@@ -273,6 +276,29 @@ void MainWindow::activeWindowStatusChanged()
         pcc->updateMissingFileStatuses();
 
     ProjucerApplication::getApp().openDocumentManager.reloadModifiedFiles();
+
+    if (Project* p = getProject())
+    {
+        if (p->hasProjectBeenModified())
+        {
+            const int r = AlertWindow::showOkCancelBox (AlertWindow::QuestionIcon,
+                                                           TRANS ("The .jucer file has been modified since the last save."),
+                                                           TRANS ("Do you want to keep the current project or re-load from disk?"),
+                                                           TRANS ("Keep"),
+                                                           TRANS ("Re-load from disk"));
+
+            if (r == 0)
+            {
+                File projectFile = p->getFile();
+                setProject (nullptr);
+                openFile (projectFile);
+            }
+            else if (r == 1)
+            {
+                ProjucerApplication::getApp().getCommandManager().invokeDirectly (CommandIDs::saveProject, true);
+            }
+        }
+    }
 }
 
 void MainWindow::updateTitle (const String& documentName)

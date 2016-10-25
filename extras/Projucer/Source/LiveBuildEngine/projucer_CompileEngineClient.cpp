@@ -89,9 +89,15 @@ namespace ProjectProperties
 
     static File getCacheLocation (Project& project)
     {
+        String cacheFolderName = project.getProjectFilenameRoot() + "_" + project.getProjectUID();
+
+       #if JUCE_DEBUG
+        cacheFolderName += "_debug";
+       #endif
+
         return getProjucerTempFolder()
                 .getChildFile ("Intermediate Files")
-                .getChildFile (project.getProjectFilenameRoot() + "_" + project.getProjectUID());
+                .getChildFile (cacheFolderName);
     }
 }
 
@@ -290,6 +296,15 @@ public:
             return;
         }
 
+        if (areAnyModulesMissing (project))
+        {
+            MessageTypes::sendNewBuild (*server, build);
+
+            owner.errorList.resetToError ("Some of your JUCE modules can't be found! "
+                                          "Please check that all the module paths are correct");
+            return;
+        }
+
         build.setSystemIncludes (getSystemIncludePaths());
         build.setUserIncludes (getUserIncludes());
 
@@ -445,6 +460,18 @@ private:
         return liveModules.isEquivalentTo (diskModules);
     }
 
+    static bool areAnyModulesMissing (Project& project)
+    {
+        OwnedArray<LibraryModule> modules;
+        project.getModules().createRequiredModules (modules);
+
+        for (auto* module : modules)
+            if (! module->getFolder().isDirectory())
+                return true;
+
+        return false;
+    }
+
     StringArray getUserIncludes()
     {
         StringArray paths;
@@ -460,7 +487,6 @@ private:
 
         if (project.getProjectType().isAudioPlugin())
         {
-            paths.add (getAppSettings().getGlobalPath (Ids::vst2Path, TargetOS::getThisOS()).toString());
             paths.add (getAppSettings().getGlobalPath (Ids::vst3Path, TargetOS::getThisOS()).toString());
         }
 

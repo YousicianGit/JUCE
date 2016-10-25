@@ -36,7 +36,7 @@ class Project  : public FileBasedDocument,
 {
 public:
     //==============================================================================
-    Project (const File& file);
+    Project (const File&);
     ~Project();
 
     //==============================================================================
@@ -157,6 +157,7 @@ public:
     bool isVSTPluginHost();
     bool isVST3PluginHost();
 
+    void updateDeprecatedProjectSettingsInteractively();
 
     //==============================================================================
     class Item
@@ -209,8 +210,6 @@ public:
 
         Value getShouldInhibitWarningsValue();
         bool shouldInhibitWarnings() const;
-        Value getShouldUseStdCallValue();
-        bool shouldUseStdCall() const;
 
         bool isModuleCode() const;
 
@@ -227,7 +226,7 @@ public:
         void addFileUnchecked (const File& file, int insertIndex, bool shouldCompile);
         bool addRelativeFile (const RelativePath& file, int insertIndex, bool shouldCompile);
         void removeItemFromProject();
-        void sortAlphabetically (bool keepGroupsAtStart);
+        void sortAlphabetically (bool keepGroupsAtStart, bool recursive);
         Item findItemForFile (const File& file) const;
         bool containsChildForFile (const RelativePath& file) const;
 
@@ -279,13 +278,14 @@ public:
     //==============================================================================
     struct ConfigFlag
     {
-        String symbol, description, sourceModuleID;
+        String symbol, description, sourceModuleID, defaultValue;
         Value value;   // 1 = true, 2 = false, anything else = use default
     };
 
     static const char* const configFlagDefault;
     static const char* const configFlagEnabled;
     static const char* const configFlagDisabled;
+
     Value getConfigFlag (const String& name);
     bool isConfigFlagEnabled (const String& name) const;
 
@@ -311,6 +311,10 @@ public:
     //==============================================================================
     static const char* projectFileExtension;
 
+    //==============================================================================
+    bool hasProjectBeenModified();
+    void updateModificationTime() { modificationTime = getFile().getLastModificationTime(); }
+
 private:
     //==============================================================================
     void setMissingAudioPluginDefaultValues();
@@ -333,6 +337,8 @@ private:
     void removeDefunctExporters();
     void updateOldModulePaths();
     void warnAboutOldProjucerVersion();
+
+    Time modificationTime;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Project)
 };
