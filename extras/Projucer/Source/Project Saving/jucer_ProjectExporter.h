@@ -67,6 +67,7 @@ public:
     virtual bool shouldFileBeCompiledByDefault (const RelativePath& path) const;
     virtual bool canCopeWithDuplicateFiles() = 0;
     virtual bool supportsUserDefinedConfigurations() const = 0; // false if exporter only supports two configs Debug and Release
+    virtual void updateDeprecatedProjectSettingsInteractively();
 
     // IDE targeted by exporter
     virtual bool isXcode() const         = 0;
@@ -130,7 +131,7 @@ public:
 
     Value getUserNotes()                        { return getSetting (Ids::userNotes); }
 
-    Value getVSTPathValue (bool isVST3) const   { return isVST3 ? vst3Path : vst2Path; }
+    Value getVST3PathValue() const              { return vst3Path; }
     Value getRTASPathValue() const              { return rtasPath; }
     Value getAAXPathValue() const               { return aaxPath; }
 
@@ -188,7 +189,7 @@ public:
     //==============================================================================
     String makefileTargetSuffix;
     bool makefileIsDLL;
-    StringArray linuxLibs, makefileExtraLinkerFlags;
+    StringArray linuxLibs, linuxPackages, makefileExtraLinkerFlags;
 
     //==============================================================================
     String msvcTargetSuffix;
@@ -340,7 +341,7 @@ protected:
     const ProjectType& projectType;
     const String projectName;
     const File projectFolder;
-    Value vst2Path, vst3Path, rtasPath, aaxPath; // these must be initialised in the specific exporter c'tors!
+    Value vst3Path, rtasPath, aaxPath; // these must be initialised in the specific exporter c'tors!
 
     mutable Array<Project::Item> itemGroups;
     void initItemGroups() const;
@@ -383,7 +384,7 @@ protected:
     static void writeXmlOrThrow (const XmlElement& xml, const File& file, const String& encoding, int maxCharsPerLine, bool useUnixNewLines = false)
     {
         MemoryOutputStream mo;
-        xml.writeToStream (mo, String::empty, false, true, encoding, maxCharsPerLine);
+        xml.writeToStream (mo, String(), false, true, encoding, maxCharsPerLine);
 
         if (useUnixNewLines)
         {
@@ -405,7 +406,7 @@ private:
     void createIconProperties (PropertyListBuilder&);
     void addVSTPathsIfPluginOrHost();
     void addCommonAudioPluginSettings();
-    void addVSTFolderToPath (bool isVST3);
+    void addVST3FolderToPath();
     void addAAXFoldersToPath();
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ProjectExporter)

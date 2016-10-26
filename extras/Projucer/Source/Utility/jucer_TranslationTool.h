@@ -201,7 +201,7 @@ struct TranslationHelpers
                 if (currentItem.isNotEmpty())
                     result.add (currentItem);
 
-                currentItem = String::empty;
+                currentItem = String();
             }
             else
             {
@@ -273,7 +273,7 @@ struct TranslationHelpers
         {
             lines.add ("language: " + original.getLanguageName());
             lines.add ("countries: " + original.getCountryCodes().joinIntoString (" "));
-            lines.add (String::empty);
+            lines.add (String());
 
             const StringArray& originalKeys (originalStrings.getAllKeys());
             const StringArray& originalValues (originalStrings.getAllValues());
@@ -296,7 +296,7 @@ struct TranslationHelpers
         {
             lines.add ("language: [enter full name of the language here!]");
             lines.add ("countries: [enter list of 2-character country codes here!]");
-            lines.add (String::empty);
+            lines.add (String());
         }
 
         for (int i = 0; i < preStrings.size(); ++i)
@@ -356,12 +356,12 @@ public:
         loadButton.addListener (this);
     }
 
-    void paint (Graphics& g)
+    void paint (Graphics& g) override
     {
         ProjucerLookAndFeel::fillWithBackgroundTexture (*this, g);
     }
 
-    void resized()
+    void resized() override
     {
         const int m = 6;
         const int textH = 44;
@@ -401,7 +401,7 @@ private:
 
     ProjucerLookAndFeel lf;
 
-    void buttonClicked (Button* b)
+    void buttonClicked (Button* b) override
     {
         if (b == &generateButton)   generate();
         else if (b == &loadButton)  loadFile();
@@ -429,8 +429,7 @@ private:
     void loadFile()
     {
         FileChooser fc ("Choose a translation file to load",
-                        File::nonexistent,
-                        "*");
+                        File(), "*");
 
         if (fc.browseForFileToOpen())
         {

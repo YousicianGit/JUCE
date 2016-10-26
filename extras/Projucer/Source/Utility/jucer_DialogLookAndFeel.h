@@ -37,16 +37,25 @@ public:
     void drawToggleButton (Graphics& g, ToggleButton& button, bool /*isMouseOverButton*/, bool /*isButtonDown*/) override
     {
         g.setColour (Colours::white);
-        g.fillEllipse (4.0f, 4.0f, 13.0f, 13.0f);
+        Rectangle<float> box (4.0f, 4.0f, 13.0f, 13.0f);
+        g.fillRoundedRectangle (box, 3.0f);
 
         if (button.getToggleState())
         {
             g.setColour (Colours::black);
-            g.fillEllipse (6.0f, 6.0f, 9.0f, 9.0f);
+
+            Path tick;
+            tick.startNewSubPath (box.getX(), box.getCentreY() + 1.0f);
+            tick.lineTo (box.getCentreX() - 1.0f, box.getBottom());
+            tick.lineTo (box.getRight(), box.getY());
+
+            const AffineTransform trans (AffineTransform::scale (0.75, 0.75, box.getCentreX(), box.getCentreY()));
+
+            g.strokePath (tick, PathStrokeType (3.0f), trans);
         }
 
         g.setColour (button.findColour (ToggleButton::textColourId));
-        g.setFont (getContaxProFont().withHeight (labelFontSize));
+        g.setFont (getDialogFont().withHeight (labelFontSize));
 
         g.drawFittedText (button.getButtonText(), 24, 1,
                           button.getWidth() - 24, button.getHeight(),
@@ -83,26 +92,22 @@ public:
     //==============================================================================
     Font getTextButtonFont (TextButton&, int /*buttonHeight*/) override
     {
-        return getContaxProFont().withHeight (buttonFontSize);
+        return getDialogFont().withHeight (buttonFontSize);
     }
 
     Font getLabelFont (Label&) override
     {
-        return getContaxProFont().withHeight (labelFontSize);
-    }
-
-    static const Font& getContaxProFont()
-    {
-        static Font font (Typeface::createSystemTypefaceFor (BinaryData::ContaxPro55Rm_otf, BinaryData::ContaxPro55Rm_otfSize));
-        return font;
+        return getDialogFont().withHeight (labelFontSize);
     }
 
     //==============================================================================
     int getAlertWindowButtonHeight() override   { return 40; }
 
-    Font getAlertWindowTitleFont() override     { return getContaxProFont().withHeight (18); }
-    Font getAlertWindowMessageFont() override   { return getContaxProFont().withHeight (12); }
-    Font getAlertWindowFont() override          { return getContaxProFont().withHeight (12); }
+    static Font getDialogFont()                 { return Font(); }
+
+    Font getAlertWindowTitleFont() override     { return getDialogFont().withHeight (18); }
+    Font getAlertWindowMessageFont() override   { return getDialogFont().withHeight (12); }
+    Font getAlertWindowFont() override          { return getDialogFont().withHeight (12); }
 
     //==============================================================================
     static Colour getBackgroundColour()         { return Colour (0xff4d4d4d); }

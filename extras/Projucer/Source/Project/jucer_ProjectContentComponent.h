@@ -110,8 +110,7 @@ public:
     void killChildProcess();
     void cleanAll();
     void handleMissingSystemHeaders();
-    bool isBuildTabShowing() const;
-    bool isLoggedInTabShowing() const;
+    bool isBuildTabEnabled() const;
     void setBuildEnabled (bool);
     bool isBuildEnabled() const;
     bool areWarningsEnabled() const;
@@ -155,6 +154,8 @@ private:
     void timerCallback() override;
 
     Component* createBuildTab (CompileEngineChildProcess*);
+    Component* createDisabledBuildTab (bool loggedIn, bool dllPresent);
+
     bool isContinuousRebuildEnabled()           { return getAppSettings().getGlobalProperties().getBoolValue ("continuousRebuild", true);  }
     void setContinuousRebuildEnabled (bool b)   { getAppSettings().getGlobalProperties().setValue ("continuousRebuild", b); }
     void rebuildNow();
@@ -162,6 +163,8 @@ private:
     void updateWarningState();
     void launchApp();
     void killApp();
+    bool isBuildTabSuitableForLoggedInUser() const;
+    bool isBuildTabLoggedInWithoutLicense() const;
 
     ReferenceCountedObjectPtr<CompileEngineChildProcess> getChildProcess();
 

@@ -110,7 +110,7 @@ void JucerDocument::timerCallback()
         stopTimer();
         beginTransaction();
 
-        flushChangesToDocuments();
+        flushChangesToDocuments (nullptr);
     }
 }
 
@@ -173,7 +173,7 @@ void JucerDocument::setParentClasses (const String& classes)
                 s = s.fromFirstOccurrenceOf (" ", false, false);
 
                 if (s.trim().isEmpty())
-                    type = s = String::empty;
+                    type = s = String();
             }
 
             s = type + CodeHelpers::makeValidIdentifier (s.trim(), false, false, true);
@@ -378,11 +378,11 @@ bool JucerDocument::loadFromXml (const XmlElement& xml)
          && getTypeName().equalsIgnoreCase (xml.getStringAttribute ("documentType")))
     {
         className = xml.getStringAttribute ("className", defaultClassName);
-        templateFile = xml.getStringAttribute ("template", String::empty);
-        componentName = xml.getStringAttribute ("componentName", String::empty);
+        templateFile = xml.getStringAttribute ("template", String());
+        componentName = xml.getStringAttribute ("componentName", String());
         parentClasses = xml.getStringAttribute ("parentClasses", defaultParentClasses);
-        constructorParams = xml.getStringAttribute ("constructorParams", String::empty);
-        variableInitialisers = xml.getStringAttribute ("variableInitialisers", String::empty);
+        constructorParams = xml.getStringAttribute ("constructorParams", String());
+        variableInitialisers = xml.getStringAttribute ("variableInitialisers", String());
 
         fixedSize = xml.getBoolAttribute ("fixedSize", false);
         initialWidth = xml.getIntAttribute ("initialWidth", 300);
@@ -425,10 +425,10 @@ void JucerDocument::fillInGeneratedCode (GeneratedCode& code) const
         code.constructorCode << "setName (" + quotedString (componentName, false) + ");\n";
 
     // call these now, just to make sure they're the first two methods in the list.
-    code.getCallbackCode (String::empty, "void", "paint (Graphics& g)", false)
+    code.getCallbackCode (String(), "void", "paint (Graphics& g)", false)
         << "//[UserPrePaint] Add your own custom painting code here..\n//[/UserPrePaint]\n\n";
 
-    code.getCallbackCode (String::empty, "void", "resized()", false)
+    code.getCallbackCode (String(), "void", "resized()", false)
         << "//[UserPreResize] Add your own custom resize code here..\n//[/UserPreResize]\n\n";
 
     if (ComponentLayout* l = getComponentLayout())
@@ -449,10 +449,10 @@ void JucerDocument::fillInGeneratedCode (GeneratedCode& code) const
     if (initialWidth > 0 || initialHeight > 0)
         code.constructorCode << "\nsetSize (" << initialWidth << ", " << initialHeight << ");\n";
 
-    code.getCallbackCode (String::empty, "void", "paint (Graphics& g)", false)
+    code.getCallbackCode (String(), "void", "paint (Graphics& g)", false)
         << "//[UserPaint] Add your own custom painting code here..\n//[/UserPaint]";
 
-    code.getCallbackCode (String::empty, "void", "resized()", false)
+    code.getCallbackCode (String(), "void", "resized()", false)
         << "//[UserResized] Add your own custom resize handling here..\n//[/UserResized]";
 
     // add optional methods
@@ -491,7 +491,7 @@ void JucerDocument::fillInPaintCode (GeneratedCode& code) const
 {
     for (int i = 0; i < getNumPaintRoutines(); ++i)
         getPaintRoutine (i)
-            ->fillInGeneratedCode (code, code.getCallbackCode (String::empty, "void", "paint (Graphics& g)", false));
+            ->fillInGeneratedCode (code, code.getCallbackCode (String(), "void", "paint (Graphics& g)", false));
 }
 
 void JucerDocument::setTemplateFile (const String& newFile)
@@ -511,7 +511,7 @@ bool JucerDocument::findTemplateFiles (String& headerContent, String& cppContent
         const File f (getCppFile().getSiblingFile (templateFile));
 
         const File templateCpp (f.withFileExtension (".cpp"));
-        const File templateH (f.withFileExtension (".h"));
+        const File templateH   (f.withFileExtension (".h"));
 
         headerContent = templateH.loadFileAsString();
         cppContent = templateCpp.loadFileAsString();
@@ -536,12 +536,12 @@ static String fixLineEndings (const String& s)
     while (lines.size() > 0 && lines [lines.size() - 1].trim().isEmpty())
         lines.remove (lines.size() - 1);
 
-    lines.add (String::empty);
+    lines.add (String());
 
     return lines.joinIntoString ("\r\n");
 }
 
-bool JucerDocument::flushChangesToDocuments()
+bool JucerDocument::flushChangesToDocuments (Project* project)
 {
     String headerTemplate, cppTemplate;
     if (! findTemplateFiles (headerTemplate, cppTemplate))
@@ -551,17 +551,20 @@ bool JucerDocument::flushChangesToDocuments()
     fillInGeneratedCode (generated);
 
     const File headerFile (getHeaderFile());
-    generated.includeFilesCPP.insert (0, headerFile.getFileName());
+    generated.includeFilesCPP.insert (0, headerFile);
 
     OpenDocumentManager& odm = ProjucerApplication::getApp().openDocumentManager;
 
-    if (SourceCodeDocument* header = dynamic_cast<SourceCodeDocument*> (odm.openFile (nullptr, getHeaderFile())))
+    if (SourceCodeDocument* header = dynamic_cast<SourceCodeDocument*> (odm.openFile (nullptr, headerFile)))
     {
         String existingHeader (header->getCodeDocument().getAllContent());
         String existingCpp (cpp->getCodeDocument().getAllContent());
 
-        generated.applyToCode (headerTemplate, headerFile.getFileNameWithoutExtension(), false, existingHeader);
-        generated.applyToCode (cppTemplate,    headerFile.getFileNameWithoutExtension(), false, existingCpp);
+        generated.applyToCode (headerTemplate, headerFile,
+                               existingHeader, project);
+
+        generated.applyToCode (cppTemplate, headerFile.withFileExtension (".cpp"),
+                               existingCpp, project);
 
         headerTemplate = fixLineEndings (headerTemplate);
         cppTemplate    = fixLineEndings (cppTemplate);
@@ -712,24 +715,24 @@ OpenDocumentManager::DocumentType* createGUIDocumentType()
 }
 
 //==============================================================================
-class JucerFileWizard  : public NewFileWizard::Type
+class NewGUIComponentWizard  : public NewFileWizard::Type
 {
 public:
-    JucerFileWizard() {}
+    NewGUIComponentWizard() {}
 
     String getName() override  { return "GUI Component"; }
 
-    void createNewFile (Project::Item parent) override
+    void createNewFile (Project& project, Project::Item parent) override
     {
         const File newFile (askUserToChooseNewFile (String (defaultClassName) + ".h", "*.h;*.cpp", parent));
 
-        if (newFile != File::nonexistent)
+        if (newFile != File())
         {
             const File headerFile (newFile.withFileExtension (".h"));
             const File cppFile (newFile.withFileExtension (".cpp"));
 
-            headerFile.replaceWithText (String::empty);
-            cppFile.replaceWithText (String::empty);
+            headerFile.replaceWithText (String());
+            cppFile.replaceWithText (String());
 
             OpenDocumentManager& odm = ProjucerApplication::getApp().openDocumentManager;
 
@@ -743,7 +746,7 @@ public:
                     {
                         jucerDoc->setClassName (newFile.getFileNameWithoutExtension());
 
-                        jucerDoc->flushChangesToDocuments();
+                        jucerDoc->flushChangesToDocuments (&project);
                         jucerDoc = nullptr;
 
                         cpp->save();
@@ -762,5 +765,5 @@ public:
 
 NewFileWizard::Type* createGUIComponentWizard()
 {
-    return new JucerFileWizard();
+    return new NewGUIComponentWizard();
 }

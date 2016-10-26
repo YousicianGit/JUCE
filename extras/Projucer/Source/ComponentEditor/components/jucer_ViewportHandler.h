@@ -66,7 +66,7 @@ public:
 
         v->setScrollBarThickness (xml.getIntAttribute ("scrollbarThickness", defaultViewport.getScrollBarThickness()));
 
-        setViewportJucerComponentFile (v, xml.getStringAttribute ("jucerFile", String::empty));
+        setViewportJucerComponentFile (v, xml.getStringAttribute ("jucerFile", String()));
         setViewportGenericComponentClass (v, xml.getStringAttribute ("contentClass"));
         setViewportContentType (v, xml.getIntAttribute ("contentType", 0));
         setViewportConstructorParams (v, xml.getStringAttribute ("constructorParams"));
@@ -150,7 +150,7 @@ public:
                 }
                 else
                 {
-                    classNm = String::empty;
+                    classNm = String();
                 }
             }
 
@@ -266,15 +266,14 @@ private:
     };
 
     //==============================================================================
-    class ViewportDemoContentComp : public Component
+    struct ViewportDemoContentComp : public Component
     {
-    public:
         ViewportDemoContentComp()
         {
             setSize (2048, 2048);
         }
 
-        void paint (Graphics& g)
+        void paint (Graphics& g) override
         {
             g.fillCheckerBoard (getLocalBounds(), 50, 50,
                                 Colours::lightgrey.withAlpha (0.5f),
@@ -506,7 +505,7 @@ private:
             const String filename (getViewportJucerComponentFile (component));
 
             if (filename.isEmpty())
-                return File::nonexistent;
+                return File();
 
             return document.getCppFile().getSiblingFile (filename);
         }

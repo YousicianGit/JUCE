@@ -287,14 +287,19 @@ public:
         return r;
     }
 
-    int getDefaultBufferSize() override         { return 256; }
+    int getDefaultBufferSize() override
+    {
+       #if TARGET_IPHONE_SIMULATOR
+        return 512;
+       #else
+        return 256;
+       #endif
+    }
 
     String open (const BigInteger& inputChannelsWanted,
                  const BigInteger& outputChannelsWanted,
                  double targetSampleRate, int bufferSize) override
     {
-        const ScopedLock sl (statusLock);
-        
         close();
 
         lastError.clear();
@@ -351,8 +356,6 @@ public:
 
     void close() override
     {
-        const ScopedLock sl (statusLock);
-        
         if (isRunning)
         {
             isRunning = false;
@@ -394,8 +397,6 @@ public:
 
     void stop() override
     {
-        const ScopedLock sl (statusLock);
-        
         if (isRunning)
         {
             AudioIODeviceCallback* lastCallback;
@@ -437,10 +438,10 @@ public:
 
     void handleStatusChange (bool enabled, const char* reason)
     {
+        const ScopedLock myScopedLock (callbackLock);
+
         JUCE_IOS_AUDIO_LOG ("handleStatusChange: enabled: " << (int) enabled << ", reason: " << reason);
 
-        const ScopedLock sl (statusLock);
-        
         isRunning = enabled;
         setAudioSessionActive (enabled);
 
@@ -455,10 +456,10 @@ public:
 
     void handleRouteChange (const char* reason)
     {
+        const ScopedLock myScopedLock (callbackLock);
+
         JUCE_IOS_AUDIO_LOG ("handleRouteChange: reason: " << reason);
 
-        const ScopedLock sl (statusLock);
-        
         fixAudioRouteIfSetToReceiver();
 
         if (isRunning)
@@ -486,7 +487,6 @@ private:
     //==============================================================================
     SharedResourcePointer<AudioSessionHolder> sessionHolder;
     CriticalSection callbackLock;
-    CriticalSection statusLock;
     NSTimeInterval sampleRate = 0;
     int numInputChannels = 2, numOutputChannels = 2;
     int preferredBufferSize = 0, actualBufferSize = 0;
@@ -529,9 +529,9 @@ private:
         if (audioInputIsAvailable && numInputChannels > 0)
             err = AudioUnitRender (audioUnit, flags, time, 1, numFrames, data);
 
-        const ScopedLock sl (callbackLock);
+        const ScopedTryLock stl (callbackLock);
 
-        if (callback != nullptr)
+        if (stl.isLocked() && callback != nullptr)
         {
             if ((int) numFrames > floatData.getNumSamples())
                 prepareFloatBuffers ((int) numFrames);
@@ -690,20 +690,23 @@ private:
         AudioUnitSetProperty (audioUnit, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Input,  0, &format, sizeof (format));
         AudioUnitSetProperty (audioUnit, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Output, 1, &format, sizeof (format));
 
-        // The below code is not correct, and has been removed by us (Yousician) due to the Juce guys being to slow in fixing it,
-        // see https://forum.juce.com/t/block-size-on-ios-8/17280 for details.
-        
-        //UInt32 framesPerSlice;
-        //UInt32 dataSize = sizeof (framesPerSlice);
-
-        //if (AudioUnitGetProperty (audioUnit, kAudioUnitProperty_MaximumFramesPerSlice, kAudioUnitScope_Global, 0, &framesPerSlice, &dataSize) == noErr
-        //       && dataSize == sizeof (framesPerSlice) && framesPerSlice != actualBufferSize)
-        //{
-        //    actualBufferSize = framesPerSlice;
-        //    prepareFloatBuffers (actualBufferSize);
-        //}
+        UInt32 framesPerSlice;
+        UInt32 dataSize = sizeof (framesPerSlice);
 
         AudioUnitInitialize (audioUnit);
+
+        AudioUnitSetProperty (audioUnit, kAudioUnitProperty_MaximumFramesPerSlice,
+                              kAudioUnitScope_Global, 0, &actualBufferSize, sizeof (actualBufferSize));
+
+
+        if (AudioUnitGetProperty (audioUnit, kAudioUnitProperty_MaximumFramesPerSlice,
+                                  kAudioUnitScope_Global, 0, &framesPerSlice, &dataSize) == noErr
+            && dataSize == sizeof (framesPerSlice) && static_cast<int> (framesPerSlice) != actualBufferSize)
+        {
+            actualBufferSize = static_cast<int> (framesPerSlice);
+            prepareFloatBuffers (actualBufferSize);
+        }
+
         return true;
     }
 
@@ -779,8 +782,24 @@ void AudioSessionHolder::handleStatusChange (bool enabled, const char* reason) c
 
 void AudioSessionHolder::handleRouteChange (const char* reason) const
 {
-    for (auto device: activeDevices)
-        device->handleRouteChange (reason);
+    struct RouteChangeMessage : public CallbackMessage
+    {
+        RouteChangeMessage (Array<iOSAudioIODevice*> devs, const char* r)
+          : devices (devs), changeReason (r)
+        {
+        }
+
+        void messageCallback() override
+        {
+            for (auto device: devices)
+                device->handleRouteChange (changeReason);
+        }
+
+        Array<iOSAudioIODevice*> devices;
+        const char* changeReason;
+    };
+
+    (new RouteChangeMessage (activeDevices, reason))->post();
 }
 
 #undef JUCE_NSERROR_CHECK

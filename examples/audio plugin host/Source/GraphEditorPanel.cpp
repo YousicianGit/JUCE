@@ -136,12 +136,12 @@ public:
         setSize (400, jlimit (25, 400, totalHeight));
     }
 
-    void paint (Graphics& g)
+    void paint (Graphics& g) override
     {
         g.fillAll (Colours::grey);
     }
 
-    void resized()
+    void resized() override
     {
         panel.setBounds (getLocalBounds());
     }
@@ -253,7 +253,7 @@ public:
         setSize (16, 16);
     }
 
-    void paint (Graphics& g)
+    void paint (Graphics& g) override
     {
         const float w = (float) getWidth();
         const float h = (float) getHeight();
@@ -267,7 +267,7 @@ public:
         g.fillPath (p);
     }
 
-    void mouseDown (const MouseEvent& e)
+    void mouseDown (const MouseEvent& e) override
     {
         getGraphPanel()->beginConnectorDrag (isInput ? 0 : filterID,
                                              index,
@@ -276,12 +276,12 @@ public:
                                              e);
     }
 
-    void mouseDrag (const MouseEvent& e)
+    void mouseDrag (const MouseEvent& e) override
     {
         getGraphPanel()->dragConnector (e);
     }
 
-    void mouseUp (const MouseEvent& e)
+    void mouseUp (const MouseEvent& e) override
     {
         getGraphPanel()->endDraggingConnector (e);
     }
@@ -663,7 +663,7 @@ public:
         }
     }
 
-    void paint (Graphics& g)
+    void paint (Graphics& g) override
     {
         if (sourceFilterChannel == FilterGraph::midiChannelNumber
              || destFilterChannel == FilterGraph::midiChannelNumber)
@@ -678,7 +678,7 @@ public:
         g.fillPath (linePath);
     }
 
-    bool hitTest (int x, int y)
+    bool hitTest (int x, int y) override
     {
         if (hitPath.contains ((float) x, (float) y))
         {
@@ -692,12 +692,12 @@ public:
         return false;
     }
 
-    void mouseDown (const MouseEvent&)
+    void mouseDown (const MouseEvent&) override
     {
         dragging = false;
     }
 
-    void mouseDrag (const MouseEvent& e)
+    void mouseDrag (const MouseEvent& e) override
     {
         if (dragging)
         {
@@ -721,13 +721,13 @@ public:
         }
     }
 
-    void mouseUp (const MouseEvent& e)
+    void mouseUp (const MouseEvent& e) override
     {
         if (dragging)
             getGraphPanel()->endDraggingConnector (e);
     }
 
-    void resized()
+    void resized() override
     {
         float x1, y1, x2, y2;
         getPoints (x1, y1, x2, y2);
@@ -969,7 +969,7 @@ void GraphEditorPanel::dragConnector (const MouseEvent& e)
 
     if (draggingConnector != nullptr)
     {
-        draggingConnector->setTooltip (String::empty);
+        draggingConnector->setTooltip (String());
 
         int x = e2.x;
         int y = e2.y;
@@ -1013,7 +1013,7 @@ void GraphEditorPanel::endDraggingConnector (const MouseEvent& e)
     if (draggingConnector == nullptr)
         return;
 
-    draggingConnector->setTooltip (String::empty);
+    draggingConnector->setTooltip (String());
 
     const MouseEvent e2 (e.getEventRelativeTo (this));
 
@@ -1058,14 +1058,14 @@ public:
         startTimer (100);
     }
 
-    void paint (Graphics& g)
+    void paint (Graphics& g) override
     {
         g.setFont (Font (getHeight() * 0.7f, Font::bold));
         g.setColour (Colours::black);
         g.drawFittedText (tip, 10, 0, getWidth() - 12, getHeight(), Justification::centredLeft, 1);
     }
 
-    void timerCallback()
+    void timerCallback() override
     {
         Component* const underMouse = Desktop::getInstance().getMainMouseSource().getComponentUnderMouse();
         TooltipClient* const ttc = dynamic_cast<TooltipClient*> (underMouse);
@@ -1091,14 +1091,14 @@ private:
 //==============================================================================
 GraphDocumentComponent::GraphDocumentComponent (AudioPluginFormatManager& formatManager,
                                                 AudioDeviceManager* deviceManager_)
-    : graph (formatManager), deviceManager (deviceManager_),
+    : graph (new FilterGraph (formatManager)), deviceManager (deviceManager_),
       graphPlayer (getAppProperties().getUserSettings()->getBoolValue ("doublePrecisionProcessing", false))
 {
-    addAndMakeVisible (graphPanel = new GraphEditorPanel (graph));
+    addAndMakeVisible (graphPanel = new GraphEditorPanel (*graph));
 
     deviceManager->addChangeListener (graphPanel);
 
-    graphPlayer.setProcessor (&graph.getGraph());
+    graphPlayer.setProcessor (&graph->getGraph());
 
     keyState.addListener (&graphPlayer.getMidiMessageCollector());
 
@@ -1108,23 +1108,16 @@ GraphDocumentComponent::GraphDocumentComponent (AudioPluginFormatManager& format
     addAndMakeVisible (statusBar = new TooltipBar());
 
     deviceManager->addAudioCallback (&graphPlayer);
-    deviceManager->addMidiInputCallback (String::empty, &graphPlayer.getMidiMessageCollector());
+    deviceManager->addMidiInputCallback (String(), &graphPlayer.getMidiMessageCollector());
 
     graphPanel->updateComponents();
 }
 
 GraphDocumentComponent::~GraphDocumentComponent()
 {
-    deviceManager->removeAudioCallback (&graphPlayer);
-    deviceManager->removeMidiInputCallback (String::empty, &graphPlayer.getMidiMessageCollector());
-    deviceManager->removeChangeListener (graphPanel);
+    releaseGraph();
 
-    deleteAllChildren();
-
-    graphPlayer.setProcessor (nullptr);
     keyState.removeListener (&graphPlayer.getMidiMessageCollector());
-
-    graph.clear();
 }
 
 void GraphDocumentComponent::resized()
@@ -1140,4 +1133,21 @@ void GraphDocumentComponent::resized()
 void GraphDocumentComponent::createNewPlugin (const PluginDescription* desc, int x, int y)
 {
     graphPanel->createNewPlugin (desc, x, y);
+}
+
+void GraphDocumentComponent::unfocusKeyboardComponent()
+{
+    keyboardComp->unfocusAllComponents();
+}
+
+void GraphDocumentComponent::releaseGraph()
+{
+    deviceManager->removeAudioCallback (&graphPlayer);
+    deviceManager->removeMidiInputCallback (String(), &graphPlayer.getMidiMessageCollector());
+    deviceManager->removeChangeListener (graphPanel);
+
+    deleteAllChildren();
+
+    graphPlayer.setProcessor (nullptr);
+    graph = nullptr;
 }

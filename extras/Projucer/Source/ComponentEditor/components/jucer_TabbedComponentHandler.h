@@ -147,7 +147,7 @@ public:
             default:                                jassertfalse; break;
         }
 
-        return String::empty;
+        return String();
     }
 
     void fillInCreationCode (GeneratedCode& code, Component* component, const String& memberVariableName)
@@ -165,14 +165,13 @@ public:
 
             if (isTabUsingJucerComp (t, i))
             {
-                ScopedPointer<JucerDocument> doc
-                    (JucerDocument::createForCppFile (nullptr, code.document->getCppFile()
-                                                                 .getSiblingFile (getTabJucerFile (t, i))));
+                File jucerCpp = code.document->getCppFile().getSiblingFile (getTabJucerFile (t, i));
+
+                ScopedPointer<JucerDocument> doc (JucerDocument::createForCppFile (nullptr, jucerCpp));
 
                 if (doc != nullptr)
                 {
-                    code.includeFilesCPP.add (getTabJucerFile (t, i).replace (".cpp", ".h"));
-
+                    code.includeFilesCPP.add (jucerCpp.withFileExtension (".h"));
                     contentClassName = doc->getClassName();
                 }
             }
@@ -276,7 +275,7 @@ public:
         TabDemoContentComp* const tdc = dynamic_cast<TabDemoContentComp*> (tc->getTabContentComponent (tabIndex));
         jassert (tdc != nullptr);
 
-        return tdc != 0 ? tdc->contentClassName : String::empty;
+        return tdc != 0 ? tdc->contentClassName : String();
     }
 
     static void setTabClassName (TabbedComponent* tc, int tabIndex, const String& newName)
@@ -296,7 +295,7 @@ public:
         TabDemoContentComp* const tdc = dynamic_cast<TabDemoContentComp*> (tc->getTabContentComponent (tabIndex));
         jassert (tdc != nullptr);
 
-        return tdc != 0 ? tdc->constructorParams : String::empty;
+        return tdc != 0 ? tdc->constructorParams : String();
     }
 
     static void setTabConstructorParams (TabbedComponent* tc, int tabIndex, const String& newParams)
@@ -316,7 +315,7 @@ public:
         TabDemoContentComp* const tdc = dynamic_cast<TabDemoContentComp*> (tc->getTabContentComponent (tabIndex));
         jassert (tdc != nullptr);
 
-        return tdc != 0 ? tdc->jucerComponentFile : String::empty;
+        return tdc != 0 ? tdc->jucerComponentFile : String();
     }
 
     static void setTabJucerFile (TabbedComponent* tc, int tabIndex, const String& newFile)
@@ -342,7 +341,7 @@ private:
             setSize (2048, 2048);
         }
 
-        void paint (Graphics& g)
+        void paint (Graphics& g) override
         {
             if (jucerComp == nullptr)
                 g.fillCheckerBoard (getLocalBounds(), 50, 50,
@@ -350,7 +349,7 @@ private:
                                     Colour::greyLevel (0.8f).withAlpha (0.4f));
         }
 
-        void resized()
+        void resized() override
         {
             if (jucerComp != nullptr)
             {
@@ -384,7 +383,7 @@ private:
             resized();
         }
 
-        void parentHierarchyChanged()
+        void parentHierarchyChanged() override
         {
             updateContent();
         }
