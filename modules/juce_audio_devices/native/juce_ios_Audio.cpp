@@ -690,22 +690,24 @@ private:
         AudioUnitSetProperty (audioUnit, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Input,  0, &format, sizeof (format));
         AudioUnitSetProperty (audioUnit, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Output, 1, &format, sizeof (format));
 
-        UInt32 framesPerSlice;
-        UInt32 dataSize = sizeof (framesPerSlice);
+//        The below code is not correct, and has been removed by us (Yousician) due to the Juce guys being to slow in fixing it,
+//        see https://forum.juce.com/t/block-size-on-ios-8/17280 for details.
+//        UInt32 framesPerSlice;
+//        UInt32 dataSize = sizeof (framesPerSlice);
 
         AudioUnitInitialize (audioUnit);
 
-        AudioUnitSetProperty (audioUnit, kAudioUnitProperty_MaximumFramesPerSlice,
-                              kAudioUnitScope_Global, 0, &actualBufferSize, sizeof (actualBufferSize));
+//        AudioUnitSetProperty (audioUnit, kAudioUnitProperty_MaximumFramesPerSlice,
+//                              kAudioUnitScope_Global, 0, &actualBufferSize, sizeof (actualBufferSize));
 
 
-        if (AudioUnitGetProperty (audioUnit, kAudioUnitProperty_MaximumFramesPerSlice,
-                                  kAudioUnitScope_Global, 0, &framesPerSlice, &dataSize) == noErr
-            && dataSize == sizeof (framesPerSlice) && static_cast<int> (framesPerSlice) != actualBufferSize)
-        {
-            actualBufferSize = static_cast<int> (framesPerSlice);
-            prepareFloatBuffers (actualBufferSize);
-        }
+//        if (AudioUnitGetProperty (audioUnit, kAudioUnitProperty_MaximumFramesPerSlice,
+//                                  kAudioUnitScope_Global, 0, &framesPerSlice, &dataSize) == noErr
+//            && dataSize == sizeof (framesPerSlice) && static_cast<int> (framesPerSlice) != actualBufferSize)
+//        {
+//            actualBufferSize = static_cast<int> (framesPerSlice);
+//            prepareFloatBuffers (actualBufferSize);
+//        }
 
         return true;
     }
