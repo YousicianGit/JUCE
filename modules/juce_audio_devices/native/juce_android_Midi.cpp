@@ -403,7 +403,7 @@ MidiChangeDetector& getMidiChangeDetector()
 
 }
 
-JUCE_JNI_CALLBACK(JUCE_ANDROID_ACTIVITY_CLASSNAME, midiDevicesChanged, void, (JNIEnv* env, jobject))
+JUCE_JNI_CALLBACK(JUCE_ANDROID_ACTIVITY_CLASSNAME, midiDevicesChanged, void, (JNIEnv* env, jclass))
 {
     setEnv(env);
     getMidiChangeDetector().emitMidiDevicesChanged();
