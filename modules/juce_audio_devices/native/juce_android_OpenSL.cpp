@@ -219,7 +219,9 @@ public:
         // Only on a Pro-Audio device will we set the lowest possible buffer size
         // by default. We need to be more conservative on other devices
         // as they may be low-latency, but still have a crappy CPU.
-        return (isProAudioDevice() ? 1 : 2) * defaultBufferSizeIsMultipleOfNative * getNativeBufferSize();
+
+        // Yousician: The original multiplier of 2 for non-pro audio devices doesn't cut it: increased to 4.
+        return (isProAudioDevice() ? 1 : 4) * defaultBufferSizeIsMultipleOfNative * getNativeBufferSize();
     }
 
     double getCurrentSampleRate() override
