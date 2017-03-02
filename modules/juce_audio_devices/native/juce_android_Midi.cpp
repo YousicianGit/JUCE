@@ -411,7 +411,11 @@ JUCE_JNI_CALLBACK(JUCE_ANDROID_ACTIVITY_CLASSNAME, midiDevicesChanged, void, (JN
 
 bool MidiSetup::supportsMidi()
 {
-    return true;
+    // At the very minimum, a device has to support USB host mode to be able to see a MIDI controller.
+    // If the device supports MIDI_SERVICE (requires API 23 or higher), MIDI is driven from the native
+    // Android API. If not, we fall back to a third-party USB MIDI driver.
+    const LocalRef<jstring> property(javaString("android.hardware.usb.host"));
+    return android.activity.callBooleanMethod(JuceAppActivity.hasSystemFeature, property.get());
 }
 
 void MidiSetup::addListener(MidiSetupListener* const listener)
