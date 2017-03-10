@@ -381,7 +381,7 @@ public:
         listeners.removeFirstMatchingValue(listener);
     }
 
-    void emitMidiDevicesChanged()
+    void midiDevicesChanged()
     {
         for (auto& listener : listeners)
         {
@@ -405,8 +405,16 @@ MidiChangeDetector& getMidiChangeDetector()
 
 JUCE_JNI_CALLBACK(JUCE_ANDROID_ACTIVITY_CLASSNAME, midiDevicesChanged, void, (JNIEnv* env, jclass))
 {
+    struct DevicesChangedMessage : public CallbackMessage
+    {
+        void messageCallback() override
+        {
+            getMidiChangeDetector().midiDevicesChanged();
+        }
+    };
+
     setEnv(env);
-    getMidiChangeDetector().emitMidiDevicesChanged();
+    (new DevicesChangedMessage())->post();
 }
 
 bool MidiSetup::supportsMidi()
