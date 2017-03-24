@@ -169,7 +169,8 @@ public:
             else
             {
                 recorder = engine.createRecorder (numInputChannels,  sampleRate,
-                                                  audioBuffersToEnqueue, actualBufferSize);
+                                                  audioBuffersToEnqueue, actualBufferSize,
+                                                  preprocessingEnabled);
 
                 if (recorder == nullptr)
                     lastError = "Error opening OpenSL input device: creating Recorder failed.";
@@ -250,7 +251,25 @@ public:
 
     bool setAudioPreprocessingEnabled (bool enable) override
     {
-        return recorder != nullptr && recorder->setAudioPreprocessingEnabled (enable);
+        if (preprocessingEnabled == enable)
+            return true;
+
+        preprocessingEnabled = enable;
+        if (isOpen() && numInputChannels > 0)
+        {
+            auto oldCallback = callback;
+
+            close();
+            auto error = open(getActiveInputChannels(), getActiveOutputChannels(),
+                              getCurrentSampleRate(), getCurrentBufferSizeSamples());
+
+            if (error.isEmpty())
+                start(oldCallback);
+            else
+                return false;
+        }
+
+        return true;
     }
 
 private:
@@ -265,6 +284,7 @@ private:
     int numInputChannels, numOutputChannels;
     int numDeviceOutputChannels;
     AudioSampleBuffer inputBuffer, outputBuffer;
+    bool preprocessingEnabled = false;
     struct Player;
     struct Recorder;
 
@@ -411,12 +431,14 @@ private:
             return player->openedOk() ? player.release() : nullptr;
         }
 
-        Recorder* createRecorder (const int numChannels, const int sampleRate, const int numBuffers, const int bufferSize)
+        Recorder* createRecorder (const int numChannels, const int sampleRate, const int numBuffers, const int bufferSize,
+                                  bool preprocessingEnabled)
         {
             if (numChannels <= 0)
                 return nullptr;
 
-            ScopedPointer<Recorder> recorder (new Recorder (numChannels, sampleRate, *this, numBuffers, bufferSize));
+            ScopedPointer<Recorder> recorder (new Recorder (numChannels, sampleRate, *this, numBuffers, bufferSize,
+                                                            preprocessingEnabled));
             return recorder->openedOk() ? recorder.release() : nullptr;
         }
 
@@ -597,7 +619,8 @@ private:
     //==============================================================================
     struct Recorder
     {
-        Recorder (int numChannels, int sampleRate, Engine& engine, const int numBuffers, const int numSamples)
+        Recorder (int numChannels, int sampleRate, Engine& engine, const int numBuffers, const int numSamples,
+            bool enablePreprocessing)
             : recorderObject (nullptr), recorderRecord (nullptr),
               recorderBufferQueue (nullptr), configObject (nullptr),
               bufferList (numChannels, numBuffers, numSamples)
@@ -620,21 +643,26 @@ private:
                                                                    static_cast<SLuint32> (bufferList.numBuffers) };
             SLDataSink audioSink = { &bufferQueue, &pcmFormat };
 
-            const SLInterfaceID interfaceIDs[] = { *engine.SL_IID_ANDROIDSIMPLEBUFFERQUEUE };
-            const SLboolean flags[] = { SL_BOOLEAN_TRUE };
+            const SLInterfaceID interfaceIDs[] = { *engine.SL_IID_ANDROIDSIMPLEBUFFERQUEUE,
+                *engine.SL_IID_ANDROIDCONFIGURATION };
+            const SLboolean flags[] = { SL_BOOLEAN_TRUE, SL_BOOLEAN_FALSE };
 
             if (check ((*engine.engineInterface)->CreateAudioRecorder (engine.engineInterface, &recorderObject, &audioSrc,
-                                                                       &audioSink, 1, interfaceIDs, flags)))
+                                                                       &audioSink, 2, interfaceIDs, flags)))
             {
+                // not all android versions seem to have a config object
+                if (!check((*recorderObject)->GetInterface(
+                    recorderObject, *engine.SL_IID_ANDROIDCONFIGURATION, &configObject)))
+                {
+                    configObject = nullptr;
+                }
+
+                setAudioPreprocessingEnabled(enablePreprocessing);
+
                 if (check ((*recorderObject)->Realize (recorderObject, SL_BOOLEAN_FALSE)))
                 {
                     check ((*recorderObject)->GetInterface (recorderObject, *engine.SL_IID_RECORD, &recorderRecord));
                     check ((*recorderObject)->GetInterface (recorderObject, *engine.SL_IID_ANDROIDSIMPLEBUFFERQUEUE, &recorderBufferQueue));
-                    // not all android versions seem to have a config object
-                    SLresult result = (*recorderObject)->GetInterface (recorderObject,
-                                                                       *engine.SL_IID_ANDROIDCONFIGURATION, &configObject);
-                    if (result != SL_RESULT_SUCCESS)
-                        configObject = nullptr;
 
                     check ((*recorderBufferQueue)->RegisterCallback (recorderBufferQueue, staticCallback, this));
                     check ((*recorderRecord)->SetRecordState (recorderRecord, SL_RECORDSTATE_STOPPED));
