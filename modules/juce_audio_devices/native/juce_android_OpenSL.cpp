@@ -221,8 +221,8 @@ public:
         // by default. We need to be more conservative on other devices
         // as they may be low-latency, but still have a crappy CPU.
 
-        // Yousician: The original multiplier of 2 for non-pro audio devices doesn't cut it: increased to 4.
-        return (isProAudioDevice() ? 1 : 4) * defaultBufferSizeIsMultipleOfNative * getNativeBufferSize();
+        auto sizes = getAvailableBufferSizes();
+        return *std::min(std::lower_bound(sizes.begin(), sizes.end(), 900), sizes.end() - 1);
     }
 
     double getCurrentSampleRate() override
