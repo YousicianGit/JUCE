@@ -149,7 +149,7 @@ JUCE_JNI_CALLBACK (JUCE_JOIN_MACRO (JUCE_ANDROID_ACTIVITY_CLASSNAME, _00024JuceM
     reinterpret_cast<AndroidMidiInput*> (host)->receive (byteArray, offset, count, timestamp);
 }
 
-JUCE_JNI_CALLBACK(com_yousician_yousiciandsp_MidiUsbToJuce_00024InputPort, handleReceive,
+JUCE_JNI_CALLBACK(com_yousician_yousiciannative_MidiUsbToJuce_00024InputPort, handleReceive,
     void, (JNIEnv* env, jobject device, jlong host, jbyteArray byteArray,
     jint offset, jint count, jlong timestamp))
 {
