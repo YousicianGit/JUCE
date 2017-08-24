@@ -373,16 +373,19 @@ class MidiChangeDetector
 public:
     void addListener(MidiSetupListener* const listener)
     {
+        ScopedLock lock(mutex);
         listeners.addIfNotAlreadyThere(listener);
     }
 
     void removeListener(MidiSetupListener* const listener)
     {
+        ScopedLock lock(mutex);
         listeners.removeFirstMatchingValue(listener);
     }
 
     void midiDevicesChanged()
     {
+        ScopedLock lock(mutex);
         for (auto& listener : listeners)
         {
             listener->midiDevicesChanged();
@@ -390,6 +393,7 @@ public:
     }
 
 private:
+    CriticalSection mutex;
     Array<MidiSetupListener*> listeners;
 };
 
