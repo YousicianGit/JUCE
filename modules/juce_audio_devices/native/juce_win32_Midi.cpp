@@ -29,14 +29,16 @@ public:
     MidiChangeDetector() : DeviceChangeDetector(L"MidiChangeDetector")
     {}
 
-    void addListener(MidiSetupListener* const l)
+    void addListener(MidiSetupListener* const listener)
     {
-        listeners.addIfNotAlreadyThere(l);
+        ScopedLock lock(mutex);
+        listeners.addIfNotAlreadyThere(listener);
     }
 
-    void removeListener(MidiSetupListener* const l)
+    void removeListener(MidiSetupListener* const listener)
     {
-        listeners.removeFirstMatchingValue(l);
+        ScopedLock lock(mutex);
+        listeners.removeFirstMatchingValue(listener);
     }
 
 private:
@@ -50,6 +52,7 @@ private:
         if (newDeviceNames != deviceNames)
         {
             deviceNames = newDeviceNames;
+            ScopedLock lock(mutex);
             for (auto& listener : listeners)
             {
                 listener->midiDevicesChanged();
@@ -57,6 +60,7 @@ private:
         }
     }
 
+    CriticalSection mutex;
     StringArray deviceNames;
     Array<MidiSetupListener*> listeners;
 };
