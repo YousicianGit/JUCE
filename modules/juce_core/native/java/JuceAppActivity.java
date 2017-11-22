@@ -22,8 +22,6 @@
 
 package com.juce;
 
-import android.annotation.SuppressLint;
-import android.annotation.TargetApi;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
@@ -33,7 +31,6 @@ import android.content.res.Configuration;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.Looper;
 import android.os.Handler;
@@ -173,6 +170,7 @@ public class JuceAppActivity   extends Activity
     //==============================================================================
     $$JuceAndroidMidiCode$$ // If you get an error here, you need to re-save your project with the Projucer!
 
+    /*
     //==============================================================================
     @Override
     public void onCreate (Bundle savedInstanceState)
@@ -225,6 +223,7 @@ public class JuceAppActivity   extends Activity
         super.onConfigurationChanged (cfg);
         setContentView (viewHolder);
     }
+    */
 
     private void callAppLauncher()
     {
@@ -315,7 +314,7 @@ public class JuceAppActivity   extends Activity
 
     public final ComponentPeerView createNewView (boolean opaque, long host)
     {
-        ComponentPeerView v = new ComponentPeerView (this, opaque, host);
+        ComponentPeerView v = new ComponentPeerView (context, opaque, host);
         viewHolder.addView (v);
         return v;
     }
@@ -439,7 +438,7 @@ public class JuceAppActivity   extends Activity
     //==============================================================================
     public final void showMessageBox (String title, String message, final long callback)
     {
-        AlertDialog.Builder builder = new AlertDialog.Builder (this);
+        AlertDialog.Builder builder = new AlertDialog.Builder (context);
         builder.setTitle (title)
                .setMessage (message)
                .setCancelable (true)
@@ -465,7 +464,7 @@ public class JuceAppActivity   extends Activity
     public final void showOkCancelBox (String title, String message, final long callback,
                                        String okButtonText, String cancelButtonText)
     {
-        AlertDialog.Builder builder = new AlertDialog.Builder (this);
+        AlertDialog.Builder builder = new AlertDialog.Builder (context);
         builder.setTitle (title)
                .setMessage (message)
                .setCancelable (true)
@@ -498,7 +497,7 @@ public class JuceAppActivity   extends Activity
 
     public final void showYesNoCancelBox (String title, String message, final long callback)
     {
-        AlertDialog.Builder builder = new AlertDialog.Builder (this);
+        AlertDialog.Builder builder = new AlertDialog.Builder (context);
         builder.setTitle (title)
                .setMessage (message)
                .setCancelable (true)
@@ -872,7 +871,7 @@ public class JuceAppActivity   extends Activity
 
     public NativeSurfaceView createNativeSurfaceView (long nativeSurfacePtr)
     {
-        return new NativeSurfaceView (this, nativeSurfacePtr);
+        return new NativeSurfaceView (context, nativeSurfacePtr);
     }
 
     //==============================================================================
@@ -1365,6 +1364,7 @@ public class JuceAppActivity   extends Activity
     public static final String getMoviesFolder()     { return getFileLocation (Environment.DIRECTORY_MOVIES); }
     public static final String getDownloadsFolder()  { return getFileLocation (Environment.DIRECTORY_DOWNLOADS); }
 
+    /*
     //==============================================================================
     @Override
     protected void onActivityResult (int requestCode, int resultCode, Intent data)
@@ -1380,6 +1380,7 @@ public class JuceAppActivity   extends Activity
 
         appNewIntent (intent);
     }
+    */
 
     //==============================================================================
     public final Typeface getTypeFaceFromAsset (String assetName)

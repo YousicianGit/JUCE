@@ -1,14 +1,3 @@
-    public boolean supportsMidiAndBluetooth()
-    {
-        // Android introduced MIDI support in the API with version 23. In addition, we have
-        // observer empirically that only devices with audio.pro and audio.low_latency can
-        // detect and interact with MIDI devices.
-
-        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
-            && hasSystemFeature("android.hardware.audio.pro")
-            && hasSystemFeature("android.hardware.audio.low_latency");
-    }
-
     //==============================================================================
     @TargetApi(Build.VERSION_CODES.M)
     public class BluetoothManager extends ScanCallback
@@ -992,56 +981,29 @@
         private HashMap<MidiPortPath, WeakReference<JuceMidiPort>> openPorts;
     }
 
-    /**
-     * For devices not supporting MIDI (API < 23 - Build.VERSION_CODES.M).
-     */
-    public class MidiDeviceManagerFallback implements MidiDeviceManagerInterface
+    // MidiDeviceManager uses elements from API 23. On older devices, ART throws a warning if it sees MidiDeviceManager
+    // in the code path, even though the class is never actually loaded. To prevent this, we encapsulate the
+    // instantiation of MidiDeviceManager in a separate builder class.
+    @TargetApi(Build.VERSION_CODES.M)
+    private class MidiDeviceManagerBuilder
     {
-        @Override
-        public String[] getJuceAndroidMidiInputDevices() {
-            return new String[0];
-        }
-
-        @Override
-        public String[] getJuceAndroidMidiOutputDevices() {
-            return new String[0];
-        }
-
-        @Override
-        public JuceMidiPort openMidiInputPortWithJuceIndex(int index, long host) {
-            return null;
-        }
-
-        @Override
-        public JuceMidiPort openMidiOutputPortWithJuceIndex(int index) {
-            return null;
-        }
-
-        @Override
-        public String getInputPortNameForJuceIndex(int index) {
-            return "";
-        }
-
-        @Override
-        public String getOutputPortNameForJuceIndex(int index) {
-            return "";
+        public MidiDeviceManagerInterface build()
+        {
+            return new MidiDeviceManager();
         }
     }
 
-    private native void midiDevicesChanged();
+    public static native void midiDevicesChanged();
 
     public MidiDeviceManagerInterface getAndroidMidiDeviceManager()
     {
-        if (getSystemService (MIDI_SERVICE) == null)
-            return null;
-
         synchronized (JuceAppActivity.class)
         {
             if (midiDeviceManager == null)
             {
-                midiDeviceManager = supportsMidiAndBluetooth()
-                    ? new MidiDeviceManager()
-                    : new MidiDeviceManagerFallback();
+                midiDeviceManager = getSystemService(MIDI_SERVICE) != null
+                    ? new MidiDeviceManagerBuilder().build()
+                    : new MidiUsbToJuce.MidiDeviceManager(context);
             }
         }
 
@@ -1051,9 +1013,6 @@
     @SuppressLint("NewApi")
     public BluetoothManager getAndroidBluetoothManager()
     {
-        if (!supportsMidiAndBluetooth())
-            return null;
-
         BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
 
         if (adapter == null)
