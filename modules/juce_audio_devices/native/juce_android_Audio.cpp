@@ -74,7 +74,7 @@ public:
     AndroidAudioIODevice (const String& deviceName)
         : AudioIODevice (deviceName, javaAudioTypeName),
           Thread ("audio"),
-          minBufferSizeOut (0), minBufferSizeIn (0), callback (0), sampleRate (0),
+          minBufferSizeOut (0), minBufferSizeIn (0), callback (0), inputSampleRate (0),
           numClientInputChannels (0), numDeviceInputChannels (0), numDeviceInputChannelsAvailable (2),
           numClientOutputChannels (0), numDeviceOutputChannels (0),
           actualBufferSize (0), isRunning (false),
@@ -82,13 +82,14 @@ public:
           outputChannelBuffer (1, 1)
     {
         JNIEnv* env = getEnv();
-        sampleRate = env->CallStaticIntMethod (AudioTrack, AudioTrack.getNativeOutputSampleRate, MODE_STREAM);
 
-        minBufferSizeOut = (int) env->CallStaticIntMethod (AudioTrack,  AudioTrack.getMinBufferSize, sampleRate, CHANNEL_OUT_STEREO, ENCODING_PCM_16BIT);
+        outputSampleRate = env->CallStaticIntMethod(AudioTrack, AudioTrack.getNativeOutputSampleRate, STREAM_MUSIC);
+        minBufferSizeOut = env->CallStaticIntMethod(AudioTrack, AudioTrack.getMinBufferSize, outputSampleRate,
+            CHANNEL_OUT_STEREO, ENCODING_PCM_16BIT) / 4;
         if (minBufferSizeOut <= 0)
         {
-            minBufferSizeOut = (int) env->CallStaticIntMethod (AudioTrack,  AudioTrack.getMinBufferSize, sampleRate,
-                CHANNEL_OUT_MONO, ENCODING_PCM_16BIT);
+            minBufferSizeOut = env->CallStaticIntMethod(AudioTrack, AudioTrack.getMinBufferSize,
+                outputSampleRate, CHANNEL_OUT_MONO, ENCODING_PCM_16BIT) / 2;
             numDeviceOutputChannelsAvailable = minBufferSizeOut > 0 ? 1 : 0;
         }
         else
@@ -96,19 +97,13 @@ public:
             numDeviceOutputChannelsAvailable = 2;
         }
 
-        minBufferSizeIn  = (int) env->CallStaticIntMethod (AudioRecord, AudioRecord.getMinBufferSize, sampleRate, CHANNEL_IN_STEREO,  ENCODING_PCM_16BIT);
-        if (minBufferSizeIn <= 0)
-        {
-            minBufferSizeIn = env->CallStaticIntMethod (AudioRecord, AudioRecord.getMinBufferSize, sampleRate, CHANNEL_IN_MONO, ENCODING_PCM_16BIT);
-
-            if (minBufferSizeIn > 0)
-                numDeviceInputChannelsAvailable = 1;
-            else
-                numDeviceInputChannelsAvailable = 0;
-        }
+        inputSampleRate = 44100;
+        minBufferSizeIn = env->CallStaticIntMethod(AudioRecord, AudioRecord.getMinBufferSize, inputSampleRate,
+            CHANNEL_IN_MONO, ENCODING_PCM_16BIT) / 2;
+        numDeviceInputChannelsAvailable = minBufferSizeIn > 0 ? 1 : 0;
 
         DBG ("Audio device - min buffers: " << minBufferSizeOut << ", " << minBufferSizeIn << "; "
-              << sampleRate << " Hz; input chans: " << numDeviceInputChannelsAvailable);
+              << inputSampleRate << " Hz; input chans: " << numDeviceInputChannelsAvailable);
     }
 
     ~AndroidAudioIODevice()
@@ -154,7 +149,7 @@ public:
     Array<double> getAvailableSampleRates() override
     {
         Array<double> r;
-        r.add ((double) sampleRate);
+        r.add ((double) inputSampleRate);
         return r;
     }
 
@@ -184,9 +179,6 @@ public:
     {
         close();
 
-        if (sampleRate != (int) requestedSampleRate)
-            return "Sample rate not allowed";
-
         lastError.clear();
         int preferredBufferSize = (bufferSize <= 0) ? getDefaultBufferSize() : bufferSize;
 
@@ -213,7 +205,7 @@ public:
         if (numDeviceOutputChannels > 0)
         {
             outputDevice = GlobalRef (env->NewObject (AudioTrack, AudioTrack.constructor,
-                                                      STREAM_MUSIC, sampleRate,
+                                                      STREAM_MUSIC, outputSampleRate,
                                                       numDeviceOutputChannels == 2 ? CHANNEL_OUT_STEREO : CHANNEL_OUT_MONO,
                                                       ENCODING_PCM_16BIT,
                                                       (jint) (minBufferSizeOut * numDeviceOutputChannels * sizeof (int16)), MODE_STREAM));
@@ -246,7 +238,7 @@ public:
             {
                 numDeviceInputChannels = jmin (numClientInputChannels, numDeviceInputChannelsAvailable);
                 inputDevice = GlobalRef (env->NewObject (AudioRecord, AudioRecord.constructor,
-                                                         0 /* (default audio source) */, sampleRate,
+                                                         0 /* (default audio source) */, inputSampleRate,
                                                          numDeviceInputChannels == 2 ? CHANNEL_IN_STEREO : CHANNEL_IN_MONO,
                                                          ENCODING_PCM_16BIT,
                                                          (jint) (minBufferSizeIn * numDeviceInputChannels * sizeof (int16))));
@@ -298,7 +290,7 @@ public:
     bool isOpen() override                               { return isRunning; }
     int getCurrentBufferSizeSamples() override           { return actualBufferSize; }
     int getCurrentBitDepth() override                    { return 16; }
-    double getCurrentSampleRate() override               { return sampleRate; }
+    double getCurrentSampleRate() override               { return inputSampleRate; }
     BigInteger getActiveOutputChannels() const override  { return activeOutputChans; }
     BigInteger getActiveInputChannels() const override   { return activeInputChans; }
     String getLastError() override                       { return lastError; }
@@ -420,7 +412,8 @@ private:
     //==============================================================================
     CriticalSection callbackLock;
     AudioIODeviceCallback* callback;
-    jint sampleRate;
+    jint inputSampleRate;
+    jint outputSampleRate;
     int numClientInputChannels, numDeviceInputChannels, numDeviceInputChannelsAvailable;
     int numClientOutputChannels, numDeviceOutputChannels, numDeviceOutputChannelsAvailable;
     int actualBufferSize;
@@ -490,10 +483,5 @@ extern bool isOpenSLAvailable();
 
 AudioIODeviceType* AudioIODeviceType::createAudioIODeviceType_Android()
 {
-   #if JUCE_USE_ANDROID_OPENSLES
-    if (isOpenSLAvailable())
-        return nullptr;
-   #endif
-
     return new AndroidAudioIODeviceType();
 }
