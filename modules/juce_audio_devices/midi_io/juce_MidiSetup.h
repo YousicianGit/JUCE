@@ -11,6 +11,9 @@
 class JUCE_API  MidiSetupListener
 {
 public:
+    virtual ~MidiSetupListener()
+    {}
+
     virtual void midiDevicesChanged() = 0;
 };
 
