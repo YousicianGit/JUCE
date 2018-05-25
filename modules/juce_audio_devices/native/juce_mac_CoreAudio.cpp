@@ -277,6 +277,8 @@ public:
     Array<double> getSampleRatesFromDevice() const
     {
         Array<double> newSampleRates;
+        newSampleRates.add(getNominalSampleRate());
+        return newSampleRates;
 
         AudioObjectPropertyAddress pa;
         pa.mScope = kAudioObjectPropertyScopeWildcard;
