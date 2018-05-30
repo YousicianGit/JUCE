@@ -715,7 +715,7 @@ public:
 
     void resetRequest() noexcept
     {
-        startTimer (500);
+        eventLoop().dispatch([this] { timerCallback(); }, std::chrono::milliseconds(500));
     }
 
     void timerCallback() override

@@ -781,7 +781,9 @@ public:
     void deviceDetailsChanged()
     {
         if (callbacksAllowed)
-            startTimer (100);
+        {
+            eventLoop().dispatch([this] { timerCallback(); }, std::chrono::milliseconds(100));
+        }
     }
 
     void timerCallback() override
