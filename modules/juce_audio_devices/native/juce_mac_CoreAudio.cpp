@@ -168,8 +168,7 @@ public:
          sampleRate (0),
          bufferSize (512),
          numInputChans (0),
-         numOutputChans (0),
-         callbacksAllowed (true)
+         numOutputChans (0)
     {
         jassert (deviceID != 0);
 
@@ -819,7 +818,7 @@ private:
     int bufferSize;
     HeapBlock<float> audioBuffer;
     int numInputChans, numOutputChans;
-    bool callbacksAllowed;
+    std::atomic_bool callbacksAllowed = { true };
 
     Array<CallbackDetailsForChannel> inputChannelInfo, outputChannelInfo;
     HeapBlock<float*> tempInputBuffers, tempOutputBuffers;
