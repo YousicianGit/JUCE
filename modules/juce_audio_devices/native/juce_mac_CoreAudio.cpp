@@ -781,7 +781,7 @@ public:
     {
         if (callbacksAllowed)
         {
-            eventLoop().dispatch([this] { timerCallback(); }, std::chrono::milliseconds(100));
+            handle_ = eventLoop().dispatch([this] { timerCallback(); }, std::chrono::milliseconds(100));
         }
     }
 
@@ -822,6 +822,8 @@ private:
 
     Array<CallbackDetailsForChannel> inputChannelInfo, outputChannelInfo;
     HeapBlock<float*> tempInputBuffers, tempOutputBuffers;
+
+    EventLoop::RaiiHandle handle_;
 
     //==============================================================================
     static OSStatus audioIOProc (AudioDeviceID /*inDevice*/,
