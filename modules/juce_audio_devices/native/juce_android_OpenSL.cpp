@@ -113,8 +113,14 @@ public:
         const int defaultNumMultiples = 8;
         const int nativeBufferSize = getNativeBufferSize();
 
+        // Make sure buffer sizes up to 3000 samples are available.
+        static auto constexpr safeBufferSize = 3000;
+        auto numMultiples = std::max(
+            safeBufferSize / nativeBufferSize + static_cast<int>(safeBufferSize % nativeBufferSize != 0),
+            defaultNumMultiples);
+
         Array<int> retval;
-        for (int i = 1; i < defaultNumMultiples; ++i)
+        for (int i = 1; i <= numMultiples; ++i)
             retval.add (i * nativeBufferSize);
 
         return retval;
