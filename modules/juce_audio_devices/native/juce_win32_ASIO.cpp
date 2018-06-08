@@ -715,7 +715,7 @@ public:
 
     void resetRequest() noexcept
     {
-        startTimer (500);
+        handle_ = eventLoop().dispatch([this] { timerCallback(); }, std::chrono::milliseconds(500));
     }
 
     void timerCallback() override
@@ -786,6 +786,8 @@ private:
     bool volatile littleEndian, postOutput, needToReset;
     bool volatile insideControlPanelModalLoop;
     bool volatile shouldUsePreferredSize;
+
+    EventLoop::RaiiHandle handle_;
 
     //==============================================================================
     static String convertASIOString (char* const text, int length)

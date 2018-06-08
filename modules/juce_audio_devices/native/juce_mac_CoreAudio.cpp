@@ -168,8 +168,7 @@ public:
          sampleRate (0),
          bufferSize (512),
          numInputChans (0),
-         numOutputChans (0),
-         callbacksAllowed (true)
+         numOutputChans (0)
     {
         jassert (deviceID != 0);
 
@@ -277,6 +276,8 @@ public:
     Array<double> getSampleRatesFromDevice() const
     {
         Array<double> newSampleRates;
+        newSampleRates.add(getNominalSampleRate());
+        return newSampleRates;
 
         AudioObjectPropertyAddress pa;
         pa.mScope = kAudioObjectPropertyScopeWildcard;
@@ -779,7 +780,9 @@ public:
     void deviceDetailsChanged()
     {
         if (callbacksAllowed)
-            startTimer (100);
+        {
+            handle_ = eventLoop().dispatch([this] { timerCallback(); }, std::chrono::milliseconds(100));
+        }
     }
 
     void timerCallback() override
@@ -815,10 +818,12 @@ private:
     int bufferSize;
     HeapBlock<float> audioBuffer;
     int numInputChans, numOutputChans;
-    bool callbacksAllowed;
+    std::atomic_bool callbacksAllowed = { true };
 
     Array<CallbackDetailsForChannel> inputChannelInfo, outputChannelInfo;
     HeapBlock<float*> tempInputBuffers, tempOutputBuffers;
+
+    EventLoop::RaiiHandle handle_;
 
     //==============================================================================
     static OSStatus audioIOProc (AudioDeviceID /*inDevice*/,

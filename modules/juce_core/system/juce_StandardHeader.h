@@ -50,6 +50,7 @@
 
 
 //==============================================================================
+#include <atomic>
 #include <memory>
 #include <cmath>
 #include <vector>
@@ -102,7 +103,6 @@
 
 #if JUCE_ANDROID
  #include <cstring>
- #include <atomic>
  #include <byteswap.h>
 #endif
 
