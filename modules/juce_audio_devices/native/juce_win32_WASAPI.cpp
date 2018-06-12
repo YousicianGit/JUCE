@@ -1123,7 +1123,7 @@ public:
         if (inputDevice != nullptr)   ResetEvent (inputDevice->clientEvent);
         if (outputDevice != nullptr)  ResetEvent (outputDevice->clientEvent);
 
-        startThread (8);
+        startThread (9);
         Thread::sleep (5);
 
         if (inputDevice != nullptr && inputDevice->client != nullptr)
@@ -1220,7 +1220,7 @@ public:
             HANDLE h = avSetMmThreadCharacteristics (L"Pro Audio", &dummy);
 
             if (h != 0)
-                avSetMmThreadPriority (h, AVRT_PRIORITY_NORMAL);
+                avSetMmThreadPriority (h, AVRT_PRIORITY_HIGH);
         }
     }
 
