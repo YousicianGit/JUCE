@@ -22,6 +22,75 @@
 
 namespace juce
 {
+namespace
+{
+//! \brief Receives notifications about changes in the MIDI input configuration and propagates them to the client code.
+//!
+class MidiInputSetup
+{
+public:
+    void addListener(MidiSetupListener* const listener)
+    {
+        ScopedLock lock{ mutex_ };
+        listeners_.addIfNotAlreadyThere(listener);
+    }
+
+    void removeListener(MidiSetupListener* const listener)
+    {
+        ScopedLock lock{ mutex_ };
+        listeners_.removeFirstMatchingValue(listener);
+    }
+
+    void notify()
+    {
+        ScopedLock lock{ mutex_ };
+        for (auto& listener : listeners_)
+        {
+            listener->midiDevicesChanged();
+        }
+    }
+
+private:
+    CriticalSection mutex_;
+    Array<MidiSetupListener*> listeners_;
+};
+
+MidiInputSetup& midiInputSetup()
+{
+    static MidiInputSetup instance;
+    return instance;
+}
+
+//! \brief Receives notifications from MidiInputDevicesObserver, checks if they match actual MIDI changes, and, if so,
+//!        propagates them to MidiInputSetup.
+// This functionality cannot be implemented directly in MidiInputDevicesObserver, where it would trigger an infinite
+// recursion when first retrieving the device names.
+class Win32NotificationFilter
+{
+public:
+    Win32NotificationFilter()
+    : deviceNames_{ MidiInput::getDevices() }
+    {}
+
+    void notify()
+    {
+        // This always gets called from the main thread, so there's no need for synchronisation.
+        if (std::exchange(deviceNames_, MidiInput::getDevices()) != deviceNames_)
+        {
+            midiInputSetup().notify();
+        }
+    }
+
+private:
+    StringArray deviceNames_;
+};
+
+Win32NotificationFilter& win32NotificationFilter()
+{
+    static Win32NotificationFilter instance;
+    return instance;
+}
+}
 
 struct MidiServiceType
 {
@@ -581,6 +650,24 @@ private:
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Win32OutputWrapper)
     };
 
+    //! \brief Detects when MIDI input devices are plugged in/unplugged.
+    //!
+    //! This class is used in conjunction with Win32MidiService, as the MIDI WinAPI alone does not have the capability
+    //! to listen to changes in the MIDI port configuration.
+    class MidiInputDevicesObserver : public DeviceChangeDetector
+    {
+    public:
+        MidiInputDevicesObserver()
+        : DeviceChangeDetector{ L"MidiInputDevicesObserver" }
+        {}
+
+    private:
+        void systemDeviceChanged() override
+        {
+            win32NotificationFilter().notify();
+        }
+    };
+
     //==============================================================================
     void asyncCheckForUnusedCollectors()
     {
@@ -601,6 +688,7 @@ private:
     CriticalSection activeCollectorLock;
     ReferenceCountedArray<MidiInCollector> activeCollectors;
     Array<MidiOutHandle*> activeOutputHandles;
+    MidiInputDevicesObserver observer_;
 };
 
 Array<Win32MidiService::MidiInCollector*, CriticalSection> Win32MidiService::MidiInCollector::activeMidiCollectors;
@@ -748,7 +836,8 @@ public:
 
             DeviceEnumerationThread enumerationThread ("WinRT Device Enumeration Thread", *this);
             enumerationThread.startThread();
-            enumerationThread.waitForThreadToExit (4000);
+            watchesInput_ = enumerationThread.waitForThreadToExit(4000)
+                && std::is_same<COMFactoryType, IMidiInPortStatics>::value;
 
             return true;
         }
@@ -798,52 +887,67 @@ public:
             if (! isEnabled)
                 return S_OK;
 
-            const ScopedLock lock (deviceChanges);
+            {
+                const ScopedLock lock (deviceChanges);
 
-            DeviceInfo info;
+                DeviceInfo info;
 
-            HSTRING name;
-            hr = addedDeviceInfo->get_Name (&name);
+                HSTRING name;
+                hr = addedDeviceInfo->get_Name (&name);
 
-            if (FAILED (hr))
-                return S_OK;
+                if (FAILED (hr))
+                    return S_OK;
 
-            info.name = WinRTWrapper::getInstance()->hStringToString (name);
+                info.name = WinRTWrapper::getInstance()->hStringToString (name);
 
-            HSTRING id;
-            hr = addedDeviceInfo->get_Id (&id);
+                HSTRING id;
+                hr = addedDeviceInfo->get_Id (&id);
 
-            if (FAILED (hr))
-                return S_OK;
+                if (FAILED (hr))
+                    return S_OK;
 
-            info.id = WinRTWrapper::getInstance()->hStringToString (id);
+                info.id = WinRTWrapper::getInstance()->hStringToString (id);
 
-            boolean isDefault;
-            hr = addedDeviceInfo->get_IsDefault (&isDefault);
+                boolean isDefault;
+                hr = addedDeviceInfo->get_IsDefault (&isDefault);
 
-            if (FAILED (hr))
-                return S_OK;
+                if (FAILED (hr))
+                    return S_OK;
 
-            info.isDefault = isDefault != 0;
-            connectedDevices.add (info);
+                info.isDefault = isDefault != 0;
+                connectedDevices.add (info);
+            }
+
+            if (watchesInput_)
+            {
+                midiInputSetup().notify();
+            }
+
             return S_OK;
         }
 
         HRESULT removeDevice (IDeviceInformationUpdate* removedDeviceInfo)
         {
-            const ScopedLock lock (deviceChanges);
-
-            HSTRING removedDeviceIdHstr;
-            removedDeviceInfo->get_Id (&removedDeviceIdHstr);
-            auto removedDeviceId = WinRTWrapper::getInstance()->hStringToString (removedDeviceIdHstr);
-
-            for (int i = 0; i < connectedDevices.size(); ++i)
             {
-                if (connectedDevices[i].id == removedDeviceId)
+                const ScopedLock lock (deviceChanges);
+
+                HSTRING removedDeviceIdHstr;
+                removedDeviceInfo->get_Id (&removedDeviceIdHstr);
+                auto removedDeviceId = WinRTWrapper::getInstance()->hStringToString (removedDeviceIdHstr);
+
+                for (int i = 0; i < connectedDevices.size(); ++i)
                 {
-                    connectedDevices.remove (i);
-                    break;
+                    if (connectedDevices[i].id == removedDeviceId)
+                    {
+                        connectedDevices.remove (i);
+                        break;
+                    }
                 }
+            }
+
+            if (watchesInput_)
+            {
+                midiInputSetup().notify();
             }
 
             return S_OK;
@@ -895,6 +999,7 @@ public:
         }
 
         ComSmartPtr<COMFactoryType>& factory;
+        std::atomic_bool watchesInput_ = { false };
 
         EventRegistrationToken deviceAddedToken   { 0 },
                                deviceRemovedToken { 0 };
@@ -1313,6 +1418,21 @@ MidiOutput::~MidiOutput()
 void MidiOutput::sendMessageNow (const MidiMessage& message)
 {
     static_cast<MidiServiceType::OutputWrapper*> (internal)->sendMessageNow (message);
+}
+
+bool MidiSetup::supportsMidi()
+{
+    return true;
+}
+
+void MidiSetup::addListener(MidiSetupListener* const listener)
+{
+    midiInputSetup().addListener(listener);
+}
+
+void MidiSetup::removeListener(MidiSetupListener* const listener)
+{
+    midiInputSetup().removeListener(listener);
 }
 
 } // namespace juce
