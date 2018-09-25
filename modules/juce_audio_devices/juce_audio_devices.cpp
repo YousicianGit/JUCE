@@ -37,7 +37,18 @@
 #define JUCE_CORE_INCLUDE_NATIVE_HEADERS 1
 #define JUCE_EVENTS_INCLUDE_WIN32_MESSAGE_WINDOW 1
 
+#include JUCE_APP_CONFIG_HEADER
+
 #include "EventLoop.h"
+
+#ifndef JUCE_USE_WINRT_MIDI
+ #define JUCE_USE_WINRT_MIDI 0
+#endif
+
+#if JUCE_USE_WINRT_MIDI
+ #define JUCE_EVENTS_INCLUDE_WINRT_WRAPPER 1
+#endif
+
 #include "juce_audio_devices.h"
 
 //==============================================================================
@@ -64,6 +75,30 @@
 #elif JUCE_WINDOWS
  #if JUCE_WASAPI
   #include <mmreg.h>
+ #endif
+
+ #if JUCE_USE_WINRT_MIDI
+  /* If you cannot find any of the header files below then you are probably
+     attempting to use the Windows 10 Bluetooth Low Energy API. For this to work you
+     need to install version 10.0.14393.0 of the Windows Standalone SDK and add the
+     path to the WinRT headers to your build system. This path should have the form
+     "C:\Program Files (x86)\Windows Kits\10\Include\10.0.14393.0\winrt".
+
+     Also please note that Microsoft's Bluetooth MIDI stack has multiple issues, so
+     this API is EXPERIMENTAL - use at your own risk!
+  */
+  #include <windows.devices.h>
+  #include <windows.devices.midi.h>
+  #include <windows.devices.enumeration.h>
+  #include <wrl/event.h>
+  #if JUCE_MSVC
+   #pragma warning (push)
+   #pragma warning (disable: 4467)
+  #endif
+  #include <robuffer.h>
+  #if JUCE_MSVC
+   #pragma warning (pop)
+  #endif
  #endif
 
  #if JUCE_ASIO
@@ -178,8 +213,6 @@ namespace juce
   #include "native/juce_win32_DirectSound.cpp"
  #endif
 
- #include "native/juce_win32_Midi.cpp"
-
  #if JUCE_ASIO
   #include "native/juce_win32_ASIO.cpp"
  #endif
@@ -227,3 +260,7 @@ namespace juce
  bool  JUCE_CALLTYPE SystemAudioVolume::setMuted (bool)   { jassertfalse; return false; }
 #endif
 }
+
+#if JUCE_WINDOWS
+#include "native/juce_win32_Midi.cpp"
+#endif
