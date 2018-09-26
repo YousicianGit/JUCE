@@ -111,6 +111,10 @@ public:
         this callback.
     */
     virtual void audioDeviceError (const String& errorMessage);
+
+    /** This can be overridden to be told if the device reports a change in output latency.
+    */
+    virtual void audioDeviceOutputLatencyChanged (int latencyInSamples);
 };
 
 
