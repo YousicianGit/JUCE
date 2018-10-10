@@ -57,6 +57,7 @@
 #include <iostream>
 #include <functional>
 #include <algorithm>
+#include <chrono>
 
 //==============================================================================
 #include "juce_CompilerSupport.h"

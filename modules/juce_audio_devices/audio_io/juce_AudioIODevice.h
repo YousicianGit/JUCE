@@ -111,6 +111,13 @@ public:
         this callback.
     */
     virtual void audioDeviceError (const String& errorMessage);
+
+    /** This can be overridden to be told if the device reports a change in output latency.
+        This could be called from any thread, including the main audio processing thread.
+        Therefore, this function should return quickly, and delegate any significant amount
+        of work to other threads in the system.
+    */
+    virtual void audioDeviceOutputLatencyChanged (int latencyInSamples);
 };
 
 

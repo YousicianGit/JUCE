@@ -32,6 +32,7 @@ AudioIODevice::~AudioIODevice() {}
 void AudioIODeviceCallback::audioDeviceError (const String&)    {}
 bool AudioIODevice::setAudioPreprocessingEnabled (bool)         { return false; }
 bool AudioIODevice::hasControlPanel() const                     { return false; }
+void AudioIODeviceCallback::audioDeviceOutputLatencyChanged (int) {}
 
 bool AudioIODevice::showControlPanel()
 {
