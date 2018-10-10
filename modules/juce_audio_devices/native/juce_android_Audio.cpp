@@ -432,7 +432,8 @@ public:
                     {
                         jlong presentationTime = env->GetLongField (timestamp, AudioTimestamp.nanoTime);
                         jlong currentTime = env->CallStaticLongMethod(System, System.nanoTime);
-                        calculateAndReportOutputLatency(framePosition, presentationTime, nextOutputFrameIndex, currentTime);
+                        calculateAndReportOutputLatency(framePosition, std::chrono::nanoseconds{ presentationTime },
+                                                        nextOutputFrameIndex, std::chrono::nanoseconds{ currentTime });
                         framesSinceOutputLatencyCheck = 0;
                     }
                 }
@@ -461,7 +462,7 @@ private:
     BigInteger activeOutputChans, activeInputChans;
     GlobalRef outputDevice, inputDevice;
     AudioSampleBuffer inputChannelBuffer, outputChannelBuffer;
-    volatile int currentOutputLatencyInSamples;
+    std::atomic<int> currentOutputLatencyInSamples;
 
     void closeDevices()
     {
@@ -480,20 +481,23 @@ private:
         }
     }
 
-    void calculateAndReportOutputLatency(int64_t presentationFrame, int64_t presentationTime, int64_t nextOutputFrame, int64_t currentTime)
+    void calculateAndReportOutputLatency(int64_t presentationFrame, std::chrono::nanoseconds presentationTime,
+                                         int64_t nextOutputFrame, std::chrono::nanoseconds currentTime)
     {
         // Currently, the reported audio output latency on Android is only used for video playback.
         // Thus, we don't need to report small changes in latency, so we keep the limit at 30 ms.
-        const float latencyChangeLimitSec = 0.03f;
+        static constexpr float latencyChangeLimitSec = 0.03f;
         const int64_t latencyChangeLimitInSamples = static_cast<int64_t>(outputSampleRate * latencyChangeLimitSec);
+
+        using namespace std::chrono;
 
         // Calculate when the next frame will be presented.
         int64_t frameIndexDelta = nextOutputFrame - presentationFrame;
-        int64_t frameTimeDelta = (frameIndexDelta * 1000 * 1000 * 1000) / outputSampleRate;
-        int64_t nextFramePresentationTime = presentationTime + frameTimeDelta;
+        auto frameTimeDelta = nanoseconds{ seconds{ frameIndexDelta } } / outputSampleRate;
+        auto nextFramePresentationTime = presentationTime + frameTimeDelta;
         // Latency is the difference between the next frame presentation time and current time.
-        int64_t latencyNs = nextFramePresentationTime - currentTime;
-        int64_t latencySamples = latencyNs * outputSampleRate / (1000 * 1000 * 1000);
+        auto latency = nextFramePresentationTime - currentTime;
+        auto latencySamples = duration_cast<seconds>(latency * outputSampleRate).count();
 
         // Next we determine, whether the change is big enough to report to the relevant callback.
         bool significantChange = false;
