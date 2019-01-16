@@ -39,6 +39,15 @@
  #endif
 #endif
 
+namespace
+{
+void replaceHandle(EventLoop::RaiiHandle& handle, std::function<EventLoop::RaiiHandle()> factory)
+{
+    handle = nullptr;
+    handle = factory();
+}
+}
+
 //==============================================================================
 struct SystemVol
 {
@@ -781,7 +790,8 @@ public:
     {
         if (callbacksAllowed)
         {
-            handle_ = eventLoop().dispatch([this] { timerCallback(); }, std::chrono::milliseconds(100));
+            using namespace std::chrono;
+            replaceHandle(handle_, [this] { return eventLoop().dispatch([this] { timerCallback(); }, 100ms); });
         }
     }
 
