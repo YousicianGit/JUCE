@@ -53,6 +53,10 @@
 //==============================================================================
 #include <juce_core/juce_core.h>
 
+#if JUCE_EVENTS_INCLUDE_WINRT_WRAPPER && JUCE_WINDOWS
+ #include <hstring.h>
+#endif
+
 namespace juce
 {
 
@@ -82,5 +86,9 @@ namespace juce
 #endif
 
 }
+
+#if JUCE_WINDOWS && JUCE_EVENTS_INCLUDE_WINRT_WRAPPER
+#include "native/juce_win32_WinRTWrapper.h"
+#endif
 
 #endif   // JUCE_EVENTS_H_INCLUDED

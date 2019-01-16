@@ -847,6 +847,8 @@ double AudioDeviceManager::getCpuUsage() const
 //==============================================================================
 void AudioDeviceManager::setMidiInputEnabled (const String& name, const bool enabled)
 {
+    ScopedLock lock{ midiDevicesMutex_ };
+
     if (enabled != isMidiInputEnabled (name))
     {
         if (enabled)

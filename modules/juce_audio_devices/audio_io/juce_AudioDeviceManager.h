@@ -513,6 +513,11 @@ private:
 
     StringArray midiInsFromXml;
     OwnedArray<MidiInput> enabledMidiInputs;
+
+    // Used to lock enabledMidiInputs when enabling/disabling MIDI devices from different threads, e.g. on WinRT or
+    // Android.
+    CriticalSection midiDevicesMutex_;
+
     Array<MidiCallbackInfo> midiCallbacks;
 
     String defaultMidiOutputName;
