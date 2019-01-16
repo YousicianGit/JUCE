@@ -1971,8 +1971,18 @@ public:
 
     void audioDeviceListChanged()
     {
-        scanForDevices();
-        callDeviceChangeListeners();
+        replaceHandle(
+            handle_,
+            [this]
+            {
+                return eventLoop().dispatch(
+                    [this]
+                    {
+                        scanForDevices();
+                        callDeviceChangeListeners();
+                    },
+                    {});
+            });
     }
 
     void triggerAsyncAudioDeviceListChange()
@@ -1986,6 +1996,7 @@ private:
     Array<AudioDeviceID> inputIds, outputIds;
 
     bool hasScanned;
+    EventLoop::RaiiHandle handle_;
 
     static int getNumChannels (AudioDeviceID deviceID, bool input)
     {
