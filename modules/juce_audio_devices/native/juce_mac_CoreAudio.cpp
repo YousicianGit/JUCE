@@ -385,16 +385,46 @@ public:
 
     int getBitDepthFromDevice (AudioObjectPropertyScope scope) const
     {
-        AudioObjectPropertyAddress pa;
-        pa.mElement = kAudioObjectPropertyElementMaster;
-        pa.mSelector = kAudioStreamPropertyPhysicalFormat;
-        pa.mScope = scope;
+        auto const streamsProperty = AudioObjectPropertyAddress{
+            kAudioDevicePropertyStreams,
+            scope,
+            kAudioObjectPropertyElementMaster
+        };
 
-        AudioStreamBasicDescription asbd;
-        UInt32 size = sizeof (asbd);
+        UInt32 size = 0;
+        if (OK(AudioObjectGetPropertyDataSize(deviceID, &streamsProperty, 0, nullptr, &size)) && (size > 0))
+        {
+            std::vector<UInt32> streamIds(size / sizeof(UInt32));
 
-        if (OK (AudioObjectGetPropertyData (deviceID, &pa, 0, nullptr, &size, &asbd)))
-            return (int) asbd.mBitsPerChannel;
+            if (OK(AudioObjectGetPropertyData(
+                deviceID, &streamsProperty, 0, nullptr, &size, streamIds.data())) && (size > 0))
+            {
+                UInt32 const numStreams = size / sizeof(UInt32);
+                std::vector<int> bitDepths(numStreams);
+
+                std::transform(
+                    streamIds.begin(),
+                    streamIds.begin() + numStreams,
+                    bitDepths.begin(),
+                    [
+                        this,
+                        property = AudioObjectPropertyAddress{
+                            kAudioStreamPropertyVirtualFormat,
+                            scope,
+                            kAudioObjectPropertyElementMaster }
+                    ](auto streamId)
+                    {
+                        UInt32 size = sizeof(AudioStreamBasicDescription);
+                        AudioStreamBasicDescription descriptor;
+                        return (OK(AudioObjectGetPropertyData(streamId, &property, 0, nullptr, &size, &descriptor))
+                                && (size > 0))
+                               ? static_cast<int>(descriptor.mBitsPerChannel)
+                               : 0;
+                    });
+
+                return *std::max_element(bitDepths.begin(), bitDepths.end());
+            }
+        }
 
         return 0;
     }
