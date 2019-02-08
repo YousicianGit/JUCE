@@ -39,15 +39,6 @@
  #endif
 #endif
 
-namespace
-{
-void replaceHandle(EventLoop::RaiiHandle& handle, std::function<EventLoop::RaiiHandle()> factory)
-{
-    handle = nullptr;
-    handle = factory();
-}
-}
-
 //==============================================================================
 struct SystemVol
 {
