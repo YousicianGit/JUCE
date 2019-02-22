@@ -1072,6 +1072,36 @@ public:
     //==============================================================================
     struct WinRTInputWrapper  : public InputWrapper
     {
+        class CallbackRegistrationThread : public Thread
+        {
+        public:
+            CallbackRegistrationThread(WinRTInputWrapper& parent)
+            : Thread { "Callback Registration Thread" }
+            , parent_ { parent }
+            {
+                startThread();
+                waitForThreadToExit(-1);
+                if (FAILED(result_.get()))
+                {
+                    throw std::runtime_error { "Failed to set midi input callback" };
+                }
+            }
+
+        private:
+            void run() override
+            {
+                result_.set(
+                    parent_.midiInPort->add_MessageReceived(
+                        Callback<ITypedEventHandler<MidiInPort*, MidiMessageReceivedEventArgs*>>(
+                            [ptr = &parent_] (auto, auto args) { return ptr->midiInMessageReceived(args); }
+                        ).Get(),
+                        &(parent_.midiInMessageToken)));
+            }
+
+            WinRTInputWrapper& parent_;
+            Atomic<HRESULT> result_;
+        };
+
         WinRTInputWrapper (WinRTMidiService& service, MidiInput& input, int index, MidiInputCallback& cb)
             : inputDevice (input),
               callback (cb)
@@ -1100,14 +1130,7 @@ public:
 
             startTime = Time::getMillisecondCounterHiRes();
 
-            auto hr = midiInPort->add_MessageReceived (
-                Callback<ITypedEventHandler<MidiInPort*, MidiMessageReceivedEventArgs*>> (
-                    [this] (IMidiInPort*, IMidiMessageReceivedEventArgs* args) { return midiInMessageReceived (args); }
-                ).Get(),
-                &midiInMessageToken);
-
-            if (FAILED (hr))
-                throw std::runtime_error ("Failed to set midi input callback");
+            CallbackRegistrationThread registration { *this };
         }
 
         ~WinRTInputWrapper()
