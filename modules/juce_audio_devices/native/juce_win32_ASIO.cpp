@@ -715,7 +715,7 @@ public:
 
     void resetRequest() noexcept
     {
-        handle_ = eventLoop().dispatch([this] { timerCallback(); }, std::chrono::milliseconds(500));
+        replaceSubscription(handle_, [this] { timerCallback(); }, std::chrono::milliseconds{ 500 });
     }
 
     void timerCallback() override

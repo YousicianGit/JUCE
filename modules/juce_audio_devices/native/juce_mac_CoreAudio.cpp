@@ -39,15 +39,6 @@
  #endif
 #endif
 
-namespace
-{
-void replaceHandle(EventLoop::RaiiHandle& handle, std::function<EventLoop::RaiiHandle()> factory)
-{
-    handle = nullptr;
-    handle = factory();
-}
-}
-
 //==============================================================================
 struct SystemVol
 {
@@ -820,8 +811,7 @@ public:
     {
         if (callbacksAllowed)
         {
-            using namespace std::chrono;
-            replaceHandle(handle_, [this] { return eventLoop().dispatch([this] { timerCallback(); }, 100ms); });
+            replaceSubscription(handle_, [this] { timerCallback(); }, std::chrono::milliseconds{ 100 });
         }
     }
 
@@ -2002,18 +1992,14 @@ public:
 
     void audioDeviceListChanged()
     {
-        replaceHandle(
+        replaceSubscription(
             handle_,
             [this]
             {
-                return eventLoop().dispatch(
-                    [this]
-                    {
-                        scanForDevices();
-                        callDeviceChangeListeners();
-                    },
-                    {});
-            });
+                scanForDevices();
+                callDeviceChangeListeners();
+            },
+            {});
     }
 
     void triggerAsyncAudioDeviceListChange()
