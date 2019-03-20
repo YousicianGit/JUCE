@@ -24,22 +24,6 @@
 
 //==============================================================================
 #define JNI_CLASS_MEMBERS(METHOD, STATICMETHOD, FIELD, STATICFIELD) \
- STATICMETHOD (nanoTime, "nanoTime", "()J") \
-
-DECLARE_JNI_CLASS (System, "java/lang/System");
-#undef JNI_CLASS_MEMBERS
-
-//==============================================================================
-#define JNI_CLASS_MEMBERS(METHOD, STATICMETHOD, FIELD, STATICFIELD) \
- METHOD (constructor,   "<init>",        "()V") \
- FIELD  (framePosition, "framePosition", "J") \
- FIELD  (nanoTime,      "nanoTime",      "J") \
-
-DECLARE_JNI_CLASS (AudioTimestamp, "android/media/AudioTimestamp");
-#undef JNI_CLASS_MEMBERS
-
-//==============================================================================
-#define JNI_CLASS_MEMBERS(METHOD, STATICMETHOD, FIELD, STATICFIELD) \
  STATICMETHOD (getMinBufferSize,            "getMinBufferSize",             "(III)I") \
  STATICMETHOD (getNativeOutputSampleRate,   "getNativeOutputSampleRate",    "(I)I") \
  METHOD (constructor,   "<init>",   "(IIIIII)V") \
@@ -49,7 +33,6 @@ DECLARE_JNI_CLASS (AudioTimestamp, "android/media/AudioTimestamp");
  METHOD (release,       "release",  "()V") \
  METHOD (flush,         "flush",    "()V") \
  METHOD (write,         "write",    "([SII)I") \
- METHOD (getTimestamp,  "getTimestamp", "(Landroid/media/AudioTimestamp;)Z") \
 
 DECLARE_JNI_CLASS (AudioTrack, "android/media/AudioTrack");
 #undef JNI_CLASS_MEMBERS
@@ -73,7 +56,6 @@ enum
     CHANNEL_OUT_STEREO  = 12,
     CHANNEL_IN_STEREO   = 12,
     CHANNEL_IN_MONO     = 16,
-    CHANNEL_OUT_MONO    = 4,
     ENCODING_PCM_16BIT  = 2,
     STREAM_MUSIC        = 3,
     MODE_STREAM         = 1,
@@ -81,7 +63,6 @@ enum
 };
 
 const char* const javaAudioTypeName = "Android Audio";
-const int outputLatencyCheckPeriodSec = 10;
 
 //==============================================================================
 class AndroidAudioIODevice  : public AudioIODevice,
@@ -92,37 +73,31 @@ public:
     AndroidAudioIODevice (const String& deviceName)
         : AudioIODevice (deviceName, javaAudioTypeName),
           Thread ("audio"),
-          minBufferSizeOut (0), minBufferSizeIn (0), callback (0), inputSampleRate (0),
+          minBufferSizeOut (0), minBufferSizeIn (0), callback (0), sampleRate (0),
           numClientInputChannels (0), numDeviceInputChannels (0), numDeviceInputChannelsAvailable (2),
           numClientOutputChannels (0), numDeviceOutputChannels (0),
           actualBufferSize (0), isRunning (false),
           inputChannelBuffer (1, 1),
-          outputChannelBuffer (1, 1),
-          currentOutputLatencyInSamples (0)
+          outputChannelBuffer (1, 1)
     {
         JNIEnv* env = getEnv();
+        sampleRate = env->CallStaticIntMethod (AudioTrack, AudioTrack.getNativeOutputSampleRate, MODE_STREAM);
 
-        outputSampleRate = env->CallStaticIntMethod(AudioTrack, AudioTrack.getNativeOutputSampleRate, STREAM_MUSIC);
-        minBufferSizeOut = env->CallStaticIntMethod(AudioTrack, AudioTrack.getMinBufferSize, outputSampleRate,
-            CHANNEL_OUT_STEREO, ENCODING_PCM_16BIT) / 4;
-        if (minBufferSizeOut <= 0)
-        {
-            minBufferSizeOut = env->CallStaticIntMethod(AudioTrack, AudioTrack.getMinBufferSize,
-                outputSampleRate, CHANNEL_OUT_MONO, ENCODING_PCM_16BIT) / 2;
-            numDeviceOutputChannelsAvailable = minBufferSizeOut > 0 ? 1 : 0;
-        }
-        else
-        {
-            numDeviceOutputChannelsAvailable = 2;
-        }
+        minBufferSizeOut = (int) env->CallStaticIntMethod (AudioTrack,  AudioTrack.getMinBufferSize,  sampleRate, CHANNEL_OUT_STEREO, ENCODING_PCM_16BIT);
+        minBufferSizeIn  = (int) env->CallStaticIntMethod (AudioRecord, AudioRecord.getMinBufferSize, sampleRate, CHANNEL_IN_STEREO,  ENCODING_PCM_16BIT);
 
-        inputSampleRate = 44100;
-        minBufferSizeIn = env->CallStaticIntMethod(AudioRecord, AudioRecord.getMinBufferSize, inputSampleRate,
-            CHANNEL_IN_MONO, ENCODING_PCM_16BIT) / 2;
-        numDeviceInputChannelsAvailable = minBufferSizeIn > 0 ? 1 : 0;
+        if (minBufferSizeIn <= 0)
+        {
+            minBufferSizeIn = env->CallStaticIntMethod (AudioRecord, AudioRecord.getMinBufferSize, sampleRate, CHANNEL_IN_MONO, ENCODING_PCM_16BIT);
+
+            if (minBufferSizeIn > 0)
+                numDeviceInputChannelsAvailable = 1;
+            else
+                numDeviceInputChannelsAvailable = 0;
+        }
 
         DBG ("Audio device - min buffers: " << minBufferSizeOut << ", " << minBufferSizeIn << "; "
-              << inputSampleRate << " Hz; input chans: " << numDeviceInputChannelsAvailable);
+              << sampleRate << " Hz; input chans: " << numDeviceInputChannelsAvailable);
     }
 
     ~AndroidAudioIODevice()
@@ -133,18 +108,8 @@ public:
     StringArray getOutputChannelNames() override
     {
         StringArray s;
-        switch(numDeviceOutputChannelsAvailable)
-        {
-        case 2:
-            s.add("Left");
-            s.add("Right");
-            break;
-        case 1:
-            s.add("Audio Output");
-        default:
-            break;
-        }
-
+        s.add ("Left");
+        s.add ("Right");
         return s;
     }
 
@@ -168,7 +133,7 @@ public:
     Array<double> getAvailableSampleRates() override
     {
         Array<double> r;
-        r.add ((double) inputSampleRate);
+        r.add ((double) sampleRate);
         return r;
     }
 
@@ -198,6 +163,9 @@ public:
     {
         close();
 
+        if (sampleRate != (int) requestedSampleRate)
+            return "Sample rate not allowed";
+
         lastError.clear();
         int preferredBufferSize = (bufferSize <= 0) ? getDefaultBufferSize() : bufferSize;
 
@@ -220,13 +188,11 @@ public:
 
         JNIEnv* env = getEnv();
 
-        numDeviceOutputChannels = std::min(numClientOutputChannels, numDeviceOutputChannelsAvailable);
-        if (numDeviceOutputChannels > 0)
+        if (numClientOutputChannels > 0)
         {
+            numDeviceOutputChannels = 2;
             outputDevice = GlobalRef (env->NewObject (AudioTrack, AudioTrack.constructor,
-                                                      STREAM_MUSIC, outputSampleRate,
-                                                      numDeviceOutputChannels == 2 ? CHANNEL_OUT_STEREO : CHANNEL_OUT_MONO,
-                                                      ENCODING_PCM_16BIT,
+                                                      STREAM_MUSIC, sampleRate, CHANNEL_OUT_STEREO, ENCODING_PCM_16BIT,
                                                       (jint) (minBufferSizeOut * numDeviceOutputChannels * sizeof (int16)), MODE_STREAM));
 
             int outputDeviceState = env->CallIntMethod (outputDevice, AudioTrack.getState);
@@ -257,8 +223,8 @@ public:
             {
                 numDeviceInputChannels = jmin (numClientInputChannels, numDeviceInputChannelsAvailable);
                 inputDevice = GlobalRef (env->NewObject (AudioRecord, AudioRecord.constructor,
-                                                         0 /* (default audio source) */, inputSampleRate,
-                                                         numDeviceInputChannels == 2 ? CHANNEL_IN_STEREO : CHANNEL_IN_MONO,
+                                                         0 /* (default audio source) */, sampleRate,
+                                                         numDeviceInputChannelsAvailable > 1 ? CHANNEL_IN_STEREO : CHANNEL_IN_MONO,
                                                          ENCODING_PCM_16BIT,
                                                          (jint) (minBufferSizeIn * numDeviceInputChannels * sizeof (int16))));
 
@@ -304,12 +270,12 @@ public:
         }
     }
 
-    int getOutputLatencyInSamples() override             { return currentOutputLatencyInSamples; }
+    int getOutputLatencyInSamples() override             { return (minBufferSizeOut * 3) / 4; }
     int getInputLatencyInSamples() override              { return (minBufferSizeIn * 3) / 4; }
     bool isOpen() override                               { return isRunning; }
     int getCurrentBufferSizeSamples() override           { return actualBufferSize; }
     int getCurrentBitDepth() override                    { return 16; }
-    double getCurrentSampleRate() override               { return inputSampleRate; }
+    double getCurrentSampleRate() override               { return sampleRate; }
     BigInteger getActiveOutputChannels() const override  { return activeOutputChans; }
     BigInteger getActiveInputChannels() const override   { return activeInputChans; }
     String getLastError() override                       { return lastError; }
@@ -348,9 +314,6 @@ public:
     {
         JNIEnv* env = getEnv();
         jshortArray audioBuffer = env->NewShortArray (actualBufferSize * jmax (numDeviceOutputChannels, numDeviceInputChannels));
-        GlobalRef timestamp = GlobalRef (env->NewObject (AudioTimestamp, AudioTimestamp.constructor));
-        int64_t nextOutputFrameIndex = 0;
-        int framesSinceOutputLatencyCheck = outputLatencyCheckPeriodSec * outputSampleRate;
 
         while (! threadShouldExit())
         {
@@ -391,8 +354,8 @@ public:
 
                 if (callback != nullptr)
                 {
-                    callback->audioDeviceIOCallback (inputChannelBuffer.getArrayOfReadPointers(), numDeviceInputChannels,
-                                                     outputChannelBuffer.getArrayOfWritePointers(), numDeviceOutputChannels,
+                    callback->audioDeviceIOCallback (inputChannelBuffer.getArrayOfReadPointers(), numClientInputChannels,
+                                                     outputChannelBuffer.getArrayOfWritePointers(), numClientOutputChannels,
                                                      actualBufferSize);
                 }
                 else
@@ -419,24 +382,6 @@ public:
 
                 env->ReleaseShortArrayElements (audioBuffer, dest, 0);
                 jint numWritten = env->CallIntMethod (outputDevice, AudioTrack.write, audioBuffer, 0, actualBufferSize * numDeviceOutputChannels);
-                int frameCount = numWritten / numDeviceOutputChannels;
-                nextOutputFrameIndex += frameCount;
-                framesSinceOutputLatencyCheck += frameCount;
-
-                // We check for changes in latency every outputLatencyCheckPeriodSec seconds
-                if (framesSinceOutputLatencyCheck >= outputLatencyCheckPeriodSec * outputSampleRate)
-                {
-                    jlong framePosition = 0;
-                    jboolean isValidTimestamp = env->CallBooleanMethod (outputDevice, AudioTrack.getTimestamp, timestamp.get());
-                    if (isValidTimestamp && ((framePosition = env->GetLongField (timestamp, AudioTimestamp.framePosition)) > 0))
-                    {
-                        jlong presentationTime = env->GetLongField (timestamp, AudioTimestamp.nanoTime);
-                        jlong currentTime = env->CallStaticLongMethod(System, System.nanoTime);
-                        calculateAndReportOutputLatency(framePosition, std::chrono::nanoseconds{ presentationTime },
-                                                        nextOutputFrameIndex, std::chrono::nanoseconds{ currentTime });
-                        framesSinceOutputLatencyCheck = 0;
-                    }
-                }
 
                 if (numWritten < actualBufferSize * numDeviceOutputChannels)
                 {
@@ -452,17 +397,15 @@ private:
     //==============================================================================
     CriticalSection callbackLock;
     AudioIODeviceCallback* callback;
-    jint inputSampleRate;
-    jint outputSampleRate;
+    jint sampleRate;
     int numClientInputChannels, numDeviceInputChannels, numDeviceInputChannelsAvailable;
-    int numClientOutputChannels, numDeviceOutputChannels, numDeviceOutputChannelsAvailable;
+    int numClientOutputChannels, numDeviceOutputChannels;
     int actualBufferSize;
     bool isRunning;
     String lastError;
     BigInteger activeOutputChans, activeInputChans;
     GlobalRef outputDevice, inputDevice;
     AudioSampleBuffer inputChannelBuffer, outputChannelBuffer;
-    std::atomic<int> currentOutputLatencyInSamples;
 
     void closeDevices()
     {
@@ -478,49 +421,6 @@ private:
             inputDevice.callVoidMethod (AudioRecord.stop);
             inputDevice.callVoidMethod (AudioRecord.release);
             inputDevice.clear();
-        }
-    }
-
-    void calculateAndReportOutputLatency(int64_t presentationFrame, std::chrono::nanoseconds presentationTime,
-                                         int64_t nextOutputFrame, std::chrono::nanoseconds currentTime)
-    {
-        // Currently, the reported audio output latency on Android is only used for video playback.
-        // Thus, we don't need to report small changes in latency, so we keep the limit at 30 ms.
-        static constexpr float latencyChangeLimitSec = 0.03f;
-        const int64_t latencyChangeLimitInSamples = static_cast<int64_t>(outputSampleRate * latencyChangeLimitSec);
-
-        using namespace std::chrono;
-
-        // Calculate when the next frame will be presented.
-        int64_t frameIndexDelta = nextOutputFrame - presentationFrame;
-        auto frameTimeDelta = nanoseconds{ seconds{ frameIndexDelta } } / outputSampleRate;
-        auto nextFramePresentationTime = presentationTime + frameTimeDelta;
-        // Latency is the difference between the next frame presentation time and current time.
-        auto latency = nextFramePresentationTime - currentTime;
-        auto latencySamples = duration_cast<seconds>(latency * outputSampleRate).count();
-
-        // Next we determine, whether the change is big enough to report to the relevant callback.
-        bool significantChange = false;
-        if (currentOutputLatencyInSamples == 0)
-        {
-            // First real measurement; take the value into use.
-            currentOutputLatencyInSamples = static_cast<int>(latencySamples);
-            significantChange = true;
-        }
-        else if (std::abs(latencySamples - currentOutputLatencyInSamples) > latencyChangeLimitInSamples)
-        {
-            // Change the latency to the mid point. This should reduce fluctuation that depends on scheduling.
-            currentOutputLatencyInSamples = static_cast<int>(currentOutputLatencyInSamples + latencySamples) / 2;
-            significantChange = true;
-        }
-
-        if (significantChange)
-        {
-            const ScopedLock sl (callbackLock);
-            if (callback != nullptr)
-            {
-                callback->audioDeviceOutputLatencyChanged(currentOutputLatencyInSamples);
-            }
         }
     }
 
@@ -567,5 +467,10 @@ extern bool isOpenSLAvailable();
 
 AudioIODeviceType* AudioIODeviceType::createAudioIODeviceType_Android()
 {
+   #if JUCE_USE_ANDROID_OPENSLES
+    if (isOpenSLAvailable())
+        return nullptr;
+   #endif
+
     return new AndroidAudioIODeviceType();
 }
