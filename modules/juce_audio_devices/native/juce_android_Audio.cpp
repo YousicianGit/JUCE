@@ -68,6 +68,13 @@ DECLARE_JNI_CLASS (AudioRecord, "android/media/AudioRecord");
 #undef JNI_CLASS_MEMBERS
 
 //==============================================================================
+#define JNI_CLASS_MEMBERS(METHOD, STATICMETHOD, FIELD, STATICFIELD) \
+ STATICMETHOD (build, "build", "(III)Landroid/media/AudioTrack;") \
+
+DECLARE_JNI_CLASS (AudioTrackBuilder, "com/yousician/yousiciannative/AudioTrackBuilder");
+#undef JNI_CLASS_MEMBERS
+
+//==============================================================================
 enum
 {
     CHANNEL_OUT_STEREO  = 12,
@@ -223,13 +230,14 @@ public:
         numDeviceOutputChannels = std::min(numClientOutputChannels, numDeviceOutputChannelsAvailable);
         if (numDeviceOutputChannels > 0)
         {
-            outputDevice = GlobalRef (env->NewObject (AudioTrack, AudioTrack.constructor,
-                                                      STREAM_MUSIC, outputSampleRate,
-                                                      numDeviceOutputChannels == 2 ? CHANNEL_OUT_STEREO : CHANNEL_OUT_MONO,
-                                                      ENCODING_PCM_16BIT,
-                                                      (jint) (minBufferSizeOut * numDeviceOutputChannels * sizeof (int16)), MODE_STREAM));
+            outputDevice = GlobalRef(env->CallStaticObjectMethod(
+                AudioTrackBuilder,
+                AudioTrackBuilder.build,
+                (jint)outputSampleRate,
+                (jint)(numDeviceOutputChannels == 2 ? CHANNEL_OUT_STEREO : CHANNEL_OUT_MONO),
+                (jint)(minBufferSizeOut * numDeviceOutputChannels * sizeof(int16))));
 
-            int outputDeviceState = env->CallIntMethod (outputDevice, AudioTrack.getState);
+            int outputDeviceState = env->CallIntMethod(outputDevice, AudioTrack.getState);
             if (outputDeviceState > 0)
             {
                 isRunning = true;
