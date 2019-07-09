@@ -26,7 +26,7 @@ namespace juce
 class WinRTWrapper :   public DeletedAtShutdown
 {
 public:
-	juce_DeclareSingleton(WinRTWrapper, true)
+	juce_DeclareSingleton(WinRTWrapper, false)
 
     class ScopedHString
     {
