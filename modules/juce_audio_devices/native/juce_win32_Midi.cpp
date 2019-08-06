@@ -1397,7 +1397,10 @@ MidiInput* MidiInput::openDevice (int index, MidiInputCallback* callback)
 
 MidiInput::~MidiInput()
 {
-    delete static_cast<MidiServiceType::InputWrapper*> (internal);
+    if (auto ptr = static_cast<MidiServiceType::InputWrapper*>(internal))
+    {
+        delete ptr;
+    }
 }
 
 void MidiInput::start()   { static_cast<MidiServiceType::InputWrapper*> (internal)->start(); }
