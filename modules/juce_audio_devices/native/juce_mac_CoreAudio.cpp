@@ -608,6 +608,26 @@ public:
         return OK (AudioObjectSetPropertyData (deviceID, &pa, 0, 0, sizeof (sr), &sr));
     }
 
+    bool configureInputChannels() const
+    {
+        UInt32 const channelCount = inChanNames.size();
+        UInt32 const size = sizeof(AudioHardwareIOProcStreamUsage)
+            + channelCount * sizeof(AudioHardwareIOProcStreamUsage::mStreamIsOn[0]);
+
+        AudioObjectPropertyAddress pa;
+        pa.mSelector = kAudioDevicePropertyIOProcStreamUsage;
+        pa.mScope = kAudioDevicePropertyScopeInput;
+        pa.mElement = kAudioObjectPropertyElementMaster;
+
+        HeapBlock<AudioHardwareIOProcStreamUsage> streamUsage;
+        streamUsage.calloc(size, 1);
+        streamUsage->mIOProc = (void*)audioProcID;
+        streamUsage->mNumberStreams = channelCount;
+        for (auto& input : inputChannelInfo)
+            streamUsage->mStreamIsOn[input.streamNum] = 1;
+        return OK(AudioObjectSetPropertyData(deviceID, &pa, 0, 0, size, streamUsage));
+    }
+
     //==============================================================================
     String reopen (const BigInteger& inputChannels,
                    const BigInteger& outputChannels,
@@ -682,7 +702,7 @@ public:
             {
                 if (OK (AudioDeviceCreateIOProcID (deviceID, audioIOProc, this, &audioProcID)))
                 {
-                    if (OK (AudioDeviceStart (deviceID, audioProcID)))
+                    if (configureInputChannels() && OK(AudioDeviceStart(deviceID, audioProcID)))
                     {
                         started = true;
                     }
