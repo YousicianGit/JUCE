@@ -608,6 +608,34 @@ public:
         return OK (AudioObjectSetPropertyData (deviceID, &pa, 0, 0, sizeof (sr), &sr));
     }
 
+    /**
+     * Yousician patch: disable input channels that are not used. When an audio device is opened, by default CoreAudio
+     * opens all input and output channels. Juce does not change this, but just ignores unused channels. OS X on the
+     * other hand requires microphone permission for audio input, so just starting output through Juce on a full duplex
+     * device would trigger microphone permission dialog. To avoid this, unused channels are disabled before starting
+     * the device. In principle the same could be done to outputs too, but it seems that the extra outputs don't cause
+     * any problems.
+     */
+    bool configureInputChannels() const
+    {
+        UInt32 const channelCount = inChanNames.size();
+        UInt32 const size = sizeof(AudioHardwareIOProcStreamUsage)
+            + channelCount * sizeof(AudioHardwareIOProcStreamUsage::mStreamIsOn[0]);
+
+        AudioObjectPropertyAddress pa;
+        pa.mSelector = kAudioDevicePropertyIOProcStreamUsage;
+        pa.mScope = kAudioDevicePropertyScopeInput;
+        pa.mElement = kAudioObjectPropertyElementMaster;
+
+        HeapBlock<AudioHardwareIOProcStreamUsage> streamUsage;
+        streamUsage.calloc(size, 1);
+        streamUsage->mIOProc = (void*)audioProcID;
+        streamUsage->mNumberStreams = channelCount;
+        for (auto& input : inputChannelInfo)
+            streamUsage->mStreamIsOn[input.streamNum] = 1;
+        return OK(AudioObjectSetPropertyData(deviceID, &pa, 0, 0, size, streamUsage));
+    }
+
     //==============================================================================
     String reopen (const BigInteger& inputChannels,
                    const BigInteger& outputChannels,
@@ -682,7 +710,7 @@ public:
             {
                 if (OK (AudioDeviceCreateIOProcID (deviceID, audioIOProc, this, &audioProcID)))
                 {
-                    if (OK (AudioDeviceStart (deviceID, audioIOProc)))
+                    if (configureInputChannels() && OK(AudioDeviceStart(deviceID, audioProcID)))
                     {
                         started = true;
                     }
@@ -715,7 +743,7 @@ public:
              && (deviceID != 0)
              && ! leaveInterruptRunning)
         {
-            OK (AudioDeviceStop (deviceID, audioIOProc));
+            OK (AudioDeviceStop (deviceID, audioProcID));
             OK (AudioDeviceDestroyIOProcID (deviceID, audioProcID));
             audioProcID = 0;
 
