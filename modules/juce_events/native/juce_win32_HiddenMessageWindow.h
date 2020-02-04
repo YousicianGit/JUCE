@@ -115,6 +115,10 @@ private:
     static LRESULT CALLBACK deviceChangeEventCallback (HWND h, const UINT message,
                                                        const WPARAM wParam, const LPARAM lParam)
     {
+        // This duplicates notications from IMMNotificationClient and isn't needed since IMMNotification works
+        // in Vista and newer OS versions and our minimum requirement is 8.1. This class is still present, because
+        // the info from IMMNotificationClient is routed through through triggerAsyncDeviceChangeCallback()
+#if false
         if (message == WM_DEVICECHANGE
              && (wParam == 0x8000 /*DBT_DEVICEARRIVAL*/
                   || wParam == 0x8004 /*DBT_DEVICEREMOVECOMPLETE*/
@@ -123,6 +127,7 @@ private:
             ((DeviceChangeDetector*) GetWindowLongPtr (h, GWLP_USERDATA))
                 ->triggerAsyncDeviceChangeCallback();
         }
+#endif
 
         return DefWindowProc (h, message, wParam, lParam);
     }
