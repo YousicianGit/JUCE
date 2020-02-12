@@ -1641,9 +1641,26 @@ private:
     }
 
     //==============================================================================
+    class ComInitializer
+    {
+    public:
+        ComInitializer()
+        : initResult(CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED))
+        {}
+
+        ~ComInitializer()
+        {
+            if (initResult == S_OK || initResult == S_FALSE)
+                CoUninitialize();
+        }
+
+    private:
+        HRESULT const initResult;
+    };
+
     void systemDeviceChanged() override
     {
-        auto result = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+        ComInitializer comInit;
 
         StringArray newOutNames, newInNames, newOutIds, newInIds;
         scan (newOutNames, newInNames, newOutIds, newInIds);
@@ -1661,9 +1678,6 @@ private:
         }
 
         callDeviceChangeListeners();
-
-        if (result == S_OK || result == S_FALSE)
-            CoUninitialize();
     }
 
     //==============================================================================
