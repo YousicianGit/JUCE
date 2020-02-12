@@ -373,7 +373,7 @@ public:
           actualBufferSize (0),
           bytesPerSample (0),
           bytesPerFrame (0),
-          sampleRateHasChanged (false)
+          audioSessionDisconnected (false)
     {
         clientEvent = CreateEvent (nullptr, false, false, nullptr);
 
@@ -448,7 +448,7 @@ public:
         if (client != nullptr
              && tryInitialisingWithBufferSize (bufferSizeSamples))
         {
-            sampleRateHasChanged = false;
+            audioSessionDisconnected = false;
 
             channelMaps.clear();
             for (int i = 0; i <= channels.getHighestBit(); ++i)
@@ -479,9 +479,15 @@ public:
         ResetEvent (clientEvent);
     }
 
-    void deviceSampleRateChanged()
+    void deviceDisconnected(AudioSessionDisconnectReason reason)
     {
-        sampleRateHasChanged = true;
+        audioSessionDisconnected = true;
+        disconnectReason = reason;
+    }
+
+    bool sampleRateHasChanged() const
+    {
+        return audioSessionDisconnected && disconnectReason == DisconnectReasonFormatChanged;
     }
 
     //==============================================================================
@@ -498,7 +504,8 @@ public:
     Array<int> channelMaps;
     UINT32 actualBufferSize;
     int bytesPerSample, bytesPerFrame;
-    bool sampleRateHasChanged;
+    bool audioSessionDisconnected;
+    AudioSessionDisconnectReason disconnectReason;
 
     virtual void updateFormat (bool isFloat) = 0;
 
@@ -518,8 +525,7 @@ private:
 
         JUCE_COMRESULT OnSessionDisconnected (AudioSessionDisconnectReason reason)
         {
-            if (reason == DisconnectReasonFormatChanged)
-                owner.deviceSampleRateChanged();
+            owner.deviceDisconnected(reason);
 
             return S_OK;
         }
@@ -542,7 +548,7 @@ private:
         if (audioSessionControl != nullptr)
         {
             sessionEventCallback = new SessionEventCallback (*this);
-            audioSessionControl->RegisterAudioSessionNotification (sessionEventCallback);
+            HRESULT result = audioSessionControl->RegisterAudioSessionNotification (sessionEventCallback);
             sessionEventCallback->Release(); // (required because ComBaseClassHelper objects are constructed with a ref count of 1)
         }
     }
@@ -1247,7 +1253,7 @@ public:
                 if (outputDevice == nullptr)
                 {
                     if (WaitForSingleObject (inputDevice->clientEvent, 1000) == WAIT_TIMEOUT)
-                        break;
+                        goto checkAudioSessionDisconnect;
 
                     inputDevice->handleDeviceBuffer();
 
@@ -1262,7 +1268,7 @@ public:
 
                 inputDevice->copyBuffersFromReservoir (inputBuffers, numInputBuffers, bufferSize);
 
-                if (inputDevice->sampleRateHasChanged)
+                if (inputDevice->sampleRateHasChanged())
                 {
                     sampleRateHasChanged = true;
                     sampleRateChangedByOutput = false;
@@ -1285,7 +1291,7 @@ public:
                 // the input reservoir is filled up correctly even when bufferSize > device actualBufferSize
                 outputDevice->copyBuffers (const_cast<const float**> (outputBuffers), numOutputBuffers, bufferSize, inputDevice, *this);
 
-                if (outputDevice->sampleRateHasChanged)
+                if (outputDevice->sampleRateHasChanged())
                 {
                     sampleRateHasChanged = true;
                     sampleRateChangedByOutput = true;
@@ -1296,6 +1302,31 @@ public:
             {
                 triggerAsyncUpdate();
                 break; // Quit the thread... will restart it later!
+            }
+            else
+            {
+checkAudioSessionDisconnect:
+                bool disconnected = false;
+                if (inputDevice != nullptr && inputDevice->audioSessionDisconnected)
+                {
+                    const String errorMessage("WASAPI input device disconnected: reason=" + String((int)inputDevice->disconnectReason));
+                    if (callback != nullptr)
+                        callback->audioDeviceError(errorMessage);
+                    disconnected = true;
+                    lastError = errorMessage;
+                }
+                if (outputDevice != nullptr && outputDevice->audioSessionDisconnected)
+                {
+                    const String errorMessage("WASAPI output device disconnected: reason=" + String((int)outputDevice->disconnectReason));
+                    if (callback != nullptr)
+                        callback->audioDeviceError(errorMessage);
+                    disconnected = true;
+                    lastError = errorMessage;
+                }
+                if (disconnected)
+                {
+                    break;
+                }
             }
         }
     }
@@ -1610,8 +1641,27 @@ private:
     }
 
     //==============================================================================
+    class ComInitializer
+    {
+    public:
+        ComInitializer()
+        : initResult(CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED))
+        {}
+
+        ~ComInitializer()
+        {
+            if (initResult == S_OK || initResult == S_FALSE)
+                CoUninitialize();
+        }
+
+    private:
+        HRESULT const initResult;
+    };
+
     void systemDeviceChanged() override
     {
+        ComInitializer comInit;
+
         StringArray newOutNames, newInNames, newOutIds, newInIds;
         scan (newOutNames, newInNames, newOutIds, newInIds);
 
