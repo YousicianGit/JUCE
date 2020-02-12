@@ -117,7 +117,7 @@ private:
     {
         // This duplicates notications from IMMNotificationClient and isn't needed since IMMNotification works
         // in Vista and newer OS versions and our minimum requirement is 8.1. This class is still present, because
-        // the info from IMMNotificationClient is routed through through triggerAsyncDeviceChangeCallback()
+        // the info from IMMNotificationClient is routed through triggerAsyncDeviceChangeCallback()
 #if false
         if (message == WM_DEVICECHANGE
              && (wParam == 0x8000 /*DBT_DEVICEARRIVAL*/
