@@ -213,7 +213,7 @@ int JUCEApplicationBase::main (int argc, const char* argv[])
        #endif
 
        #if JUCE_IOS
-        return juce_iOSMain (argc, argv);
+        return 0;
        #else
         return JUCEApplicationBase::main();
        #endif
