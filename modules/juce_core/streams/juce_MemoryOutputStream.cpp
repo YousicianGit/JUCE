@@ -179,8 +179,10 @@ int64 MemoryOutputStream::writeFromInputStream (InputStream& source, int64 maxNu
         if (maxNumBytesToWrite > availableData || maxNumBytesToWrite < 0)
             maxNumBytesToWrite = availableData;
 
+#if !JUCE_WINDOWS
         if (blockToUse != nullptr)
             preallocate (blockToUse->getSize() + (size_t) maxNumBytesToWrite);
+#endif
     }
 
     return OutputStream::writeFromInputStream (source, maxNumBytesToWrite);
