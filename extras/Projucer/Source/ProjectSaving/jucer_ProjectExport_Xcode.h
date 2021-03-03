@@ -1150,7 +1150,7 @@ public:
 
         String getXcodeSchemeName() const
         {
-            return owner.projectName + " - " + getName();
+            return owner.projectName;
         }
 
         String getID() const
@@ -1774,7 +1774,7 @@ public:
         {
             switch (type)
             {
-                case GUIApp:            return "$(HOME)/Applications";
+                case GUIApp:            return "/Applications";
                 case ConsoleApp:        return "/usr/bin";
                 case VSTPlugIn:         return config.isPluginBinaryCopyStepEnabled() ? config.getVSTBinaryLocationString() : String();
                 case VST3PlugIn:        return config.isPluginBinaryCopyStepEnabled() ? config.getVST3BinaryLocationString() : String();
@@ -2410,7 +2410,7 @@ private:
 
         if (! build_tools::asArray (icons).isEmpty())
         {
-            iconFile = getTargetFolder().getChildFile ("Icon.icns");
+            iconFile = getTargetFolder().getChildFile ("icon.icns");
             build_tools::writeMacIcon (icons, iconFile);
         }
     }
