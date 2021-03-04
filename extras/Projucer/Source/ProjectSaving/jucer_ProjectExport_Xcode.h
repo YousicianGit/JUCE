@@ -1229,8 +1229,9 @@ public:
             if (developmentTeamID.isNotEmpty())
             {
                 attributes << "DevelopmentTeam = " << developmentTeamID << "; ";
-                attributes << "ProvisioningStyle = Automatic; ";
             }
+
+            attributes << "ProvisioningStyle = Manual; ";
 
             auto appGroupsEnabled      = (owner.iOS && owner.isAppGroupsEnabled()) ? 1 : 0;
             auto inAppPurchasesEnabled = owner.isInAppPurchasesEnabled() ? 1 : 0;
