@@ -268,9 +268,10 @@ bool File::replaceInternal (const File& dest) const
                         nullptr, nullptr) != 0;
 }
 
-Result File::createDirectoryInternal (const String& fileName) const
+Result File::createDirectoryInternal(const String& fileName) const
 {
-    return CreateDirectory (fileName.toWideCharPointer(), nullptr) ? Result::ok()
+    auto longPathFile = "\\\\?\\" + fileName;
+    return CreateDirectoryW(longPathFile.toWideCharPointer(), nullptr) ? Result::ok()
                                                                    : WindowsFileHelpers::getResultForLastError();
 }
 
@@ -286,7 +287,8 @@ int64 juce_fileSetPosition (void* handle, int64 pos)
 
 void FileInputStream::openHandle()
 {
-    auto h = CreateFile (file.getFullPathName().toWideCharPointer(),
+    auto longPathFile = "\\\\?\\" + .getFullPathName();
+    auto h = CreateFileW (longPathFile.toWideCharPointer(),
                          GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
                          OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL | FILE_FLAG_SEQUENTIAL_SCAN, nullptr);
 
@@ -319,7 +321,8 @@ size_t FileInputStream::readInternal (void* buffer, size_t numBytes)
 //==============================================================================
 void FileOutputStream::openHandle()
 {
-    auto h = CreateFile (file.getFullPathName().toWideCharPointer(),
+    auto longPathFile = "\\\\?\\" + file.getFullPathName();
+    auto h = CreateFileW(longPathFile.toWideCharPointer(),
                          GENERIC_WRITE, FILE_SHARE_READ, nullptr,
                          OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
 
@@ -397,7 +400,7 @@ void MemoryMappedFile::openInternal (const File& file, AccessMode mode, bool exc
         access = FILE_MAP_ALL_ACCESS;
     }
 
-    auto h = CreateFile (file.getFullPathName().toWideCharPointer(), accessMode,
+    auto h = CreateFileW (file.getFullPathName().toWideCharPointer(), accessMode,
                          exclusive ? 0 : (FILE_SHARE_READ | FILE_SHARE_DELETE | (mode == readWrite ? FILE_SHARE_WRITE : 0)), nullptr,
                          createType, FILE_ATTRIBUTE_NORMAL | FILE_FLAG_SEQUENTIAL_SCAN, nullptr);
 
