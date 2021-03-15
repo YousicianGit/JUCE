@@ -287,8 +287,7 @@ int64 juce_fileSetPosition (void* handle, int64 pos)
 
 void FileInputStream::openHandle()
 {
-    auto longPathFile = "\\\\?\\" + file.getFullPathName();
-    auto h = CreateFileW (longPathFile.toWideCharPointer(),
+    auto h = CreateFile (file.getFullPathName().toWideCharPointer(),
                          GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
                          OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL | FILE_FLAG_SEQUENTIAL_SCAN, nullptr);
 
