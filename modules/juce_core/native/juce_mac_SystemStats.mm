@@ -148,7 +148,7 @@ String SystemStats::getOperatingSystemName()
    #if JUCE_IOS
     return "iOS " + nsStringToJuce ([[UIDevice currentDevice] systemVersion]);
    #else
-    return "Mac OSX " + getOSXVersion();
+    return "MacOS " + getOSXVersion();
    #endif
 }
 
