@@ -1237,8 +1237,8 @@ public:
             if (developmentTeamID.isNotEmpty())
             {
                 attributes.add ("DevelopmentTeam = " + developmentTeamID);
+                attributes.add ("ProvisioningStyle = Automatic");
             }
-            attributes.add ("ProvisioningStyle = Manual");
 
             std::map<String, bool> capabilities;
 
