@@ -456,7 +456,6 @@ public:
 
         // this collects all the new details from the device without any locking, then
         // locks + swaps them afterwards.
-
         const double newSampleRate = getNominalSampleRate();
         const int newBufferSize = getFrameSizeFromDevice();
 
@@ -488,6 +487,8 @@ public:
             sampleRates.swapWith (newSampleRates);
             bufferSizes.swapWith (newBufferSizes);
 
+            numOutputChans = std::min(newOutChans.size(), numOutputChans);
+
             inChanNames.swapWith (newInNames);
             outChanNames.swapWith (newOutNames);
 
@@ -495,6 +496,7 @@ public:
             outputChannelInfo.swapWith (newOutChans);
 
             allocateTempBuffers();
+            parameterUpdatePending = false;
         }
 
         return true;
@@ -705,6 +707,7 @@ public:
         if (! started)
         {
             callback = nullptr;
+            parameterUpdatePending = false;
 
             if (deviceID != 0)
             {
@@ -782,7 +785,7 @@ public:
     {
         const ScopedLock sl (callbackLock);
 
-        if (callback != nullptr)
+        if (callback != nullptr && !parameterUpdatePending)
         {
             for (int i = numInputChans; --i >= 0;)
             {
@@ -837,6 +840,7 @@ public:
     // called by callbacks
     void deviceDetailsChanged()
     {
+        parameterUpdatePending = true;
         if (callbacksAllowed)
         {
             replaceSubscription(handle_, [this] { timerCallback(); }, std::chrono::milliseconds{ 100 });
@@ -850,10 +854,13 @@ public:
         stopTimer();
         const double oldSampleRate = sampleRate;
         const int oldBufferSize = bufferSize;
+        const int oldInputChans = numInputChans;
+        const int oldOutputChans = numOutputChans;
 
-        if (! updateDetailsFromDevice())
+        if (!updateDetailsFromDevice())
             owner.stop();
-        else if (oldBufferSize != bufferSize || oldSampleRate != sampleRate)
+        else if (oldBufferSize != bufferSize || oldSampleRate != sampleRate ||
+                 oldInputChans != numInputChans || oldOutputChans != numOutputChans)
             owner.restart();
     }
 
@@ -872,6 +879,7 @@ private:
     CriticalSection callbackLock;
     AudioDeviceID deviceID;
     bool started;
+    std::atomic_bool parameterUpdatePending { false };
     double sampleRate;
     int bufferSize;
     HeapBlock<float> audioBuffer;
