@@ -254,7 +254,7 @@ public:
                             [nameNSString release];
                         }
 
-                        if ((input ? activeInputChans : activeOutputChans) [chanNum])
+                        if ((input ? requestedInputChans : requestedOutputChans) [chanNum])
                         {
                             CallbackDetailsForChannel info = { i, (int) j, (int) b.mNumberChannels };
                             newChannelInfo.add (info);
@@ -487,13 +487,24 @@ public:
             sampleRates.swapWith (newSampleRates);
             bufferSizes.swapWith (newBufferSizes);
 
-            numOutputChans = std::min(newOutChans.size(), numOutputChans);
-
             inChanNames.swapWith (newInNames);
             outChanNames.swapWith (newOutNames);
 
             inputChannelInfo.swapWith (newInChans);
             outputChannelInfo.swapWith (newOutChans);
+
+            activeInputChans = requestedInputChans;
+            activeInputChans.setRange (inChanNames.size(),
+                                       activeInputChans.getHighestBit() + 1 - inChanNames.size(),
+                                       false);
+
+            activeOutputChans = requestedOutputChans;
+            activeOutputChans.setRange (outChanNames.size(),
+                                       activeOutputChans.getHighestBit() + 1 - outChanNames.size(),
+                                       false);
+
+            numInputChans = activeInputChans.countNumberOfSetBits();
+            numOutputChans = activeOutputChans.countNumberOfSetBits();
 
             allocateTempBuffers();
             parameterUpdatePending = false;
@@ -649,11 +660,13 @@ public:
 
         stop (false);
 
+        requestedInputChans = inputChannels;
         activeInputChans = inputChannels;
         activeInputChans.setRange (inChanNames.size(),
                                    activeInputChans.getHighestBit() + 1 - inChanNames.size(),
                                    false);
 
+        requestedOutputChans = outputChannels;
         activeOutputChans = outputChannels;
         activeOutputChans.setRange (outChanNames.size(),
                                     activeOutputChans.getHighestBit() + 1 - outChanNames.size(),
@@ -868,6 +881,7 @@ public:
     CoreAudioIODevice& owner;
     int inputLatency, outputLatency;
     int bitDepth;
+    BigInteger requestedInputChans, requestedOutputChans;
     BigInteger activeInputChans, activeOutputChans;
     StringArray inChanNames, outChanNames;
     Array<double> sampleRates;
