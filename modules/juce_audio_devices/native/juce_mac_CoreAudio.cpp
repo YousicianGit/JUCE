@@ -254,7 +254,7 @@ public:
                             [nameNSString release];
                         }
 
-                        if ((input ? activeInputChans : activeOutputChans) [chanNum])
+                        if ((input ? requestedInputChans : requestedOutputChans) [chanNum])
                         {
                             CallbackDetailsForChannel info = { i, (int) j, (int) b.mNumberChannels };
                             newChannelInfo.add (info);
@@ -456,7 +456,6 @@ public:
 
         // this collects all the new details from the device without any locking, then
         // locks + swaps them afterwards.
-
         const double newSampleRate = getNominalSampleRate();
         const int newBufferSize = getFrameSizeFromDevice();
 
@@ -494,7 +493,21 @@ public:
             inputChannelInfo.swapWith (newInChans);
             outputChannelInfo.swapWith (newOutChans);
 
+            activeInputChans = requestedInputChans;
+            activeInputChans.setRange (inChanNames.size(),
+                                       activeInputChans.getHighestBit() + 1 - inChanNames.size(),
+                                       false);
+
+            activeOutputChans = requestedOutputChans;
+            activeOutputChans.setRange (outChanNames.size(),
+                                       activeOutputChans.getHighestBit() + 1 - outChanNames.size(),
+                                       false);
+
+            numInputChans = activeInputChans.countNumberOfSetBits();
+            numOutputChans = activeOutputChans.countNumberOfSetBits();
+
             allocateTempBuffers();
+            parameterUpdatePending = false;
         }
 
         return true;
@@ -647,11 +660,13 @@ public:
 
         stop (false);
 
+        requestedInputChans = inputChannels;
         activeInputChans = inputChannels;
         activeInputChans.setRange (inChanNames.size(),
                                    activeInputChans.getHighestBit() + 1 - inChanNames.size(),
                                    false);
 
+        requestedOutputChans = outputChannels;
         activeOutputChans = outputChannels;
         activeOutputChans.setRange (outChanNames.size(),
                                     activeOutputChans.getHighestBit() + 1 - outChanNames.size(),
@@ -705,6 +720,7 @@ public:
         if (! started)
         {
             callback = nullptr;
+            parameterUpdatePending = false;
 
             if (deviceID != 0)
             {
@@ -782,7 +798,7 @@ public:
     {
         const ScopedLock sl (callbackLock);
 
-        if (callback != nullptr)
+        if (callback != nullptr && !parameterUpdatePending)
         {
             for (int i = numInputChans; --i >= 0;)
             {
@@ -837,6 +853,7 @@ public:
     // called by callbacks
     void deviceDetailsChanged()
     {
+        parameterUpdatePending = true;
         if (callbacksAllowed)
         {
             replaceSubscription(handle_, [this] { timerCallback(); }, std::chrono::milliseconds{ 100 });
@@ -850,10 +867,13 @@ public:
         stopTimer();
         const double oldSampleRate = sampleRate;
         const int oldBufferSize = bufferSize;
+        const int oldInputChans = numInputChans;
+        const int oldOutputChans = numOutputChans;
 
-        if (! updateDetailsFromDevice())
+        if (!updateDetailsFromDevice())
             owner.stop();
-        else if (oldBufferSize != bufferSize || oldSampleRate != sampleRate)
+        else if (oldBufferSize != bufferSize || oldSampleRate != sampleRate ||
+                 oldInputChans != numInputChans || oldOutputChans != numOutputChans)
             owner.restart();
     }
 
@@ -861,6 +881,7 @@ public:
     CoreAudioIODevice& owner;
     int inputLatency, outputLatency;
     int bitDepth;
+    BigInteger requestedInputChans, requestedOutputChans;
     BigInteger activeInputChans, activeOutputChans;
     StringArray inChanNames, outChanNames;
     Array<double> sampleRates;
@@ -872,6 +893,7 @@ private:
     CriticalSection callbackLock;
     AudioDeviceID deviceID;
     bool started;
+    std::atomic_bool parameterUpdatePending { false };
     double sampleRate;
     int bufferSize;
     HeapBlock<float> audioBuffer;
