@@ -39,7 +39,8 @@ FileLogger::FileLogger (const File& file,
             << "**********************************************************" << newLine
             << welcomeMessage << newLine
             << "Log started: " << Time::getCurrentTime().toString (true, true, true, true)
-            << " " << Time::getCurrentTime().getTimeZone() << newLine;
+            << " " << Time::getCurrentTime().getTimeZone()
+            << " (" << Time::getCurrentTime().getUTCOffsetString(false) + ")" << newLine;
 
     FileLogger::logMessage (welcome);
 }
