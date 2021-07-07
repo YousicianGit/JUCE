@@ -179,11 +179,10 @@ int64 MemoryOutputStream::writeFromInputStream (InputStream& source, int64 maxNu
         if (maxNumBytesToWrite > availableData || maxNumBytesToWrite < 0)
             maxNumBytesToWrite = availableData;
 
-#if !JUCE_WINDOWS
-        // this is broken on Windows: keeps allocating way too much memory and file downloads slow down by 10x
-        if (blockToUse != nullptr)
-            preallocate (blockToUse->getSize() + (size_t) maxNumBytesToWrite);
-#endif
+        // This is broken on Windows: keeps allocating way too much memory and file downloads slow down by 10x.
+        // Seems like Mac is better off without this too.
+        //if (blockToUse != nullptr)
+        //    preallocate (blockToUse->getSize() + (size_t) maxNumBytesToWrite);
     }
 
     return OutputStream::writeFromInputStream (source, maxNumBytesToWrite);
