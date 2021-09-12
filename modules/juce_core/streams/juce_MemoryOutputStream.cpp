@@ -171,20 +171,6 @@ bool MemoryOutputStream::setPosition (int64 newPosition)
 
 int64 MemoryOutputStream::writeFromInputStream (InputStream& source, int64 maxNumBytesToWrite)
 {
-    // before writing from an input, see if we can preallocate to make it more efficient..
-    int64 availableData = source.getTotalLength() - source.getPosition();
-
-    if (availableData > 0)
-    {
-        if (maxNumBytesToWrite > availableData || maxNumBytesToWrite < 0)
-            maxNumBytesToWrite = availableData;
-
-        // This is broken on Windows: keeps allocating way too much memory and file downloads slow down by 10x.
-        // Seems like Mac is better off without this too.
-        //if (blockToUse != nullptr)
-        //    preallocate (blockToUse->getSize() + (size_t) maxNumBytesToWrite);
-    }
-
     return OutputStream::writeFromInputStream (source, maxNumBytesToWrite);
 }
 
