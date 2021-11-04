@@ -553,7 +553,7 @@ function(_juce_generate_icon source_target dest_target)
 
         _juce_check_icon_files_exist("${icon_args}")
 
-        set(generated_icon "${juce_library_code}/Icon.icns")
+        set(generated_icon "${juce_library_code}/icon.icns")
         # To get compiled properly, we need the icon before the plist is generated!
         _juce_execute_juceaide(macicon "${generated_icon}" ${icon_args})
         set_source_files_properties(${generated_icon} PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
