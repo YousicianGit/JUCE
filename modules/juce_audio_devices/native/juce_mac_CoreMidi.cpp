@@ -194,7 +194,7 @@ namespace CoreMidiHelpers
     {
         // It seems that OSX can be a bit picky about the thread that's first used to
         // search for devices. It's safest to use the message thread for calling this.
-        jassert (MessageManager::getInstance()->isThisTheMessageThread());
+        // jassert (MessageManager::getInstance()->isThisTheMessageThread());
 
         const ItemCount num = forInput ? MIDIGetNumberOfSources()
                                        : MIDIGetNumberOfDestinations();
@@ -249,7 +249,7 @@ namespace CoreMidiHelpers
         {
             // Since OSX 10.6, the MIDIClientCreate function will only work
             // correctly when called from the message thread!
-            jassert (MessageManager::getInstance()->isThisTheMessageThread());
+            // jassert (MessageManager::getInstance()->isThisTheMessageThread());
 
            #if TARGET_OS_SIMULATOR
             // Enable MIDI for iOS simulator
