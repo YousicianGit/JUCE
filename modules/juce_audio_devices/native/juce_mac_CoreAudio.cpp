@@ -194,6 +194,8 @@ public:
         stop (false);
     }
 
+    AudioDeviceID const* getDeviceID() const { return &deviceID; }
+
     void allocateTempBuffers()
     {
         const int tempBufSize = bufferSize + 4;
@@ -1039,6 +1041,8 @@ public:
 
         AudioObjectRemovePropertyListener (kAudioObjectSystemObject, &pa, hardwareListenerProc, internal);
     }
+
+    void const* getDeviceID() const noexcept override   { return internal->getDeviceID(); }
 
     StringArray getOutputChannelNames() override        { return internal->outChanNames; }
     StringArray getInputChannelNames() override         { return internal->inChanNames; }
