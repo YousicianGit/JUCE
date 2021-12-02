@@ -146,7 +146,7 @@ public:
     const String& getTypeName() const noexcept                      { return typeName; }
 
     /** Returns pointer to driver-specific device ID */
-    virtual void const* getDeviceID() const noexcept                { return nullptr; }
+    virtual void const* getNativeDeviceID() const noexcept          { return nullptr; }
 
     //==============================================================================
     /** Returns the names of all the available output channels on this device.
