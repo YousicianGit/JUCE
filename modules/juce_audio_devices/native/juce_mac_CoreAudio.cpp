@@ -937,7 +937,7 @@ private:
 
             case kAudioDevicePropertyDeviceHasChanged:
             case kAudioObjectPropertyOwnedObjects:
-                intern->owner.restart();
+                intern->deviceDetailsChanged();
                 intern->owner.deviceType.triggerAsyncAudioDeviceListChange();
                 break;
 
