@@ -123,6 +123,7 @@ public:
     {
         if (obj != 0)
             getEnv()->DeleteLocalRef (obj);
+        obj = 0;
     }
 
     LocalRef& operator= (const LocalRef& other)
