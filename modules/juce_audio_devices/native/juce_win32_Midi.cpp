@@ -85,6 +85,68 @@ public:
     virtual void sendMessageNow (const MidiMessage&) = 0;
 };
 
+namespace
+{
+class MidiInputSetup
+{
+public:
+    void addListener(MidiSetupListener* const listener)
+    {
+        DBG("--- Adding Listener");
+        ScopedLock lock { mutex_ };
+        listeners_.addIfNotAlreadyThere(listener);
+    }
+
+    void removeListener(MidiSetupListener* const listener)
+    {
+        DBG("--- Removing Listener");
+        ScopedLock lock { mutex_ };
+        listeners_.removeFirstMatchingValue(listener);
+    }
+
+    void Notify()
+    {
+        ScopedLock lock { mutex_ };
+        for (auto& listener : listeners_)
+            listener->midiDevicesChanged();
+    }
+
+private:
+    CriticalSection mutex_;
+    Array<MidiSetupListener*> listeners_;
+};
+
+MidiInputSetup& midiInputSetup()
+{
+    static MidiInputSetup instance;
+    return instance;
+}
+
+class Win32NotificationFilter
+{
+public:
+    Win32NotificationFilter()
+    : deviceNames_{ MidiInput::getDevices() }
+    {}
+
+    void notify()
+    {
+        if (std::exchange(deviceNames_, MidiInput::getDevices()) != deviceNames_)
+        {
+            midiInputSetup().Notify();
+        }
+    }
+private:
+    StringArray deviceNames_;
+};
+
+Win32NotificationFilter& win32NotificationFilter()
+{
+    static Win32NotificationFilter instance;
+    return instance;
+}
+}
+
 struct MidiServiceType
 {
     MidiServiceType() = default;
@@ -107,12 +169,14 @@ struct Win32MidiService  : public MidiServiceType,
 
     Array<MidiDeviceInfo> getAvailableDevices (bool isInput) override
     {
+        DBG("--- Get Available Devices");
         return isInput ? Win32InputWrapper::getAvailableDevices()
                        : Win32OutputWrapper::getAvailableDevices();
     }
 
     MidiDeviceInfo getDefaultDevice (bool isInput) override
     {
+        DBG("--- Get Default Devices");
         return isInput ? Win32InputWrapper::getDefaultDevice()
                        : Win32OutputWrapper::getDefaultDevice();
     }
@@ -694,6 +758,19 @@ private:
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Win32OutputWrapper)
     };
 
+    class MidiInputDevicesObserver : public DeviceChangeDetector
+    {
+    public:
+        MidiInputDevicesObserver()
+        : DeviceChangeDetector{ L"MidiInputDevicesObserver" }
+        {}
+    private:
+        void systemDeviceChanged() override
+        {
+            DBG("--- Notifying system change");
+            win32NotificationFilter().notify();
+        }
+    };
     //==============================================================================
     void asyncCheckForUnusedCollectors()
     {
@@ -714,6 +791,7 @@ private:
     CriticalSection activeCollectorLock;
     ReferenceCountedArray<MidiInCollector> activeCollectors;
     Array<MidiOutHandle*> activeOutputHandles;
+    MidiInputDevicesObserver observer_;
 };
 
 Array<Win32MidiService::MidiInCollector*, CriticalSection> Win32MidiService::MidiInCollector::activeMidiCollectors;
@@ -751,6 +829,7 @@ public:
     //==============================================================================
     WinRTMidiService()
     {
+        DBG("--- WinRTMidiService");
         auto* wrtWrapper = WinRTWrapper::getInstance();
 
         if (! wrtWrapper->isInitialised())
@@ -1116,6 +1195,11 @@ private:
                                          << " " << (info.isConnected ? "connected" : "disconnected"));
                     devices.set (deviceID, info);
 
+                    if (watchesInput_)
+                    {
+                        midiInputSetup().notify();
+                    }
+
                     return S_OK;
                 }
             }
@@ -1330,6 +1414,11 @@ private:
             {
                 const ScopedLock lock (deviceChanges);
                 connectedDevices.add (info);
+            }
+
+            if (watchesInput_)
+            {
+                midiInputSetup().notify();
             }
 
             return S_OK;
@@ -1852,7 +1941,7 @@ struct MidiService :  public DeletedAtShutdown
             catch (std::runtime_error&) {}
         }
       #endif
-
+        DBG("--- Midi Service");
         internal.reset (new Win32MidiService());
     }
 
@@ -2013,4 +2102,18 @@ void MidiOutput::sendMessageNow (const MidiMessage& message)
     internal->sendMessageNow (message);
 }
 
+bool MidiSetup::supportsMidi()
+{
+    return true;
+}
+
+void MidiSetup::addListener(MidiSetupListener* const listener)
+{
+    midiInputSetup().addListener(listener);
+}
+
+void MidiSetup::removeListener(MidiSetupListener* const listener)
+{
+    midiInputSetup().removeListener(listener);
+}
 } // namespace juce
