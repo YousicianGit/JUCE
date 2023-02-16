@@ -200,6 +200,7 @@ private:
         MidiInCollector (Win32MidiService& s, MidiDeviceInfo d)
             : deviceInfo (d), midiService (s)
         {
+            DBG("--- Midi In controller created");
         }
 
         ~MidiInCollector()
@@ -489,6 +490,7 @@ private:
         Win32InputWrapper (Win32MidiService& parentService, MidiInput& midiInput, const String& deviceIdentifier, MidiInputCallback& c)
             : input (midiInput), callback (c)
         {
+            DBG("--- Input Wrapper created");
             collector = getOrCreateCollector (parentService, deviceIdentifier);
             collector->addClient (this);
         }
@@ -763,7 +765,9 @@ private:
     public:
         MidiInputDevicesObserver()
         : DeviceChangeDetector{ L"MidiInputDevicesObserver" }
-        {}
+        {
+            DBG("--- Created Midi Input Device Observer");
+        }
     private:
         void systemDeviceChanged() override
         {
@@ -829,7 +833,6 @@ public:
     //==============================================================================
     WinRTMidiService()
     {
-        DBG("--- WinRTMidiService");
         auto* wrtWrapper = WinRTWrapper::getInstance();
 
         if (! wrtWrapper->isInitialised())
@@ -1130,6 +1133,7 @@ private:
 
         //==============================================================================
         ComSmartPtr<IDeviceWatcher> watcher;
+        std::atomic_bool watchesInput_ = { false };
 
         EventRegistrationToken deviceAddedToken   { 0 },
                                deviceRemovedToken { 0 },
@@ -1202,6 +1206,11 @@ private:
 
                     return S_OK;
                 }
+            }
+
+            if (watchesInput_)
+            {
+                midiInputSetup().notify();
             }
 
             JUCE_WINRT_MIDI_LOG ("Failed to get a container ID for BLE device: " << deviceID);
@@ -1299,6 +1308,8 @@ private:
         {
             WinRTWrapper::ScopedHString deviceSelector ("System.Devices.Aep.ProtocolId:=\"{bb7bb05e-5972-42b5-94fc-76eaa7084d49}\""
                                                         " AND System.Devices.Aep.IsPaired:=System.StructuredQueryType.Boolean#True");
+            watchesInput_ = enumerationThread.waitForThreadToExit(4000)
+                && std::is_same<COMFactoryType, IMidiInPortStatics>::value;
             return attach (deviceSelector.get(), DeviceInformationKind::DeviceInformationKind_AssociationEndpoint);
         }
 
@@ -1477,6 +1488,9 @@ private:
                 JUCE_WINRT_MIDI_LOG ("Failed to get MIDI device selector!");
                 return false;
             }
+
+            watchesInput_ = enumerationThread.waitForThreadToExit(4000)
+                && std::is_same<COMFactoryType, IMidiInPortStatics>::value;
 
             return attach (deviceSelector, DeviceInformationKind::DeviceInformationKind_DeviceInterface);
         }
@@ -1941,7 +1955,6 @@ struct MidiService :  public DeletedAtShutdown
             catch (std::runtime_error&) {}
         }
       #endif
-        DBG("--- Midi Service");
         internal.reset (new Win32MidiService());
     }
 
