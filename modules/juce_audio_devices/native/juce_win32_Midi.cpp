@@ -92,14 +92,12 @@ class MidiInputSetup
 public:
     void addListener(MidiSetupListener* const listener)
     {
-        DBG("--- Adding Listener");
         ScopedLock lock { mutex_ };
         listeners_.addIfNotAlreadyThere(listener);
     }
 
-    void removeListener(MidiSetupListener* const listener)
+    void removeListener(MidiSetupListener* listener)
     {
-        DBG("--- Removing Listener");
         ScopedLock lock { mutex_ };
         listeners_.removeFirstMatchingValue(listener);
     }
@@ -126,18 +124,18 @@ class Win32NotificationFilter
 {
 public:
     Win32NotificationFilter()
-    : deviceNames_{ MidiInput::getDevices() }
+    : devicesInfo_{ { } }
     {}
 
     void notify()
     {
-        if (std::exchange(deviceNames_, MidiInput::getDevices()) != deviceNames_)
+        if (std::exchange(devicesInfo_, MidiInput::getAvailableDevices()) != devicesInfo_)
         {
             midiInputSetup().Notify();
         }
     }
 private:
-    StringArray deviceNames_;
+    Array<MidiDeviceInfo> devicesInfo_;
 };
 
 Win32NotificationFilter& win32NotificationFilter()
@@ -169,14 +167,12 @@ struct Win32MidiService  : public MidiServiceType,
 
     Array<MidiDeviceInfo> getAvailableDevices (bool isInput) override
     {
-        DBG("--- Get Available Devices");
         return isInput ? Win32InputWrapper::getAvailableDevices()
                        : Win32OutputWrapper::getAvailableDevices();
     }
 
     MidiDeviceInfo getDefaultDevice (bool isInput) override
     {
-        DBG("--- Get Default Devices");
         return isInput ? Win32InputWrapper::getDefaultDevice()
                        : Win32OutputWrapper::getDefaultDevice();
     }
@@ -200,7 +196,6 @@ private:
         MidiInCollector (Win32MidiService& s, MidiDeviceInfo d)
             : deviceInfo (d), midiService (s)
         {
-            DBG("--- Midi In controller created");
         }
 
         ~MidiInCollector()
@@ -490,7 +485,6 @@ private:
         Win32InputWrapper (Win32MidiService& parentService, MidiInput& midiInput, const String& deviceIdentifier, MidiInputCallback& c)
             : input (midiInput), callback (c)
         {
-            DBG("--- Input Wrapper created");
             collector = getOrCreateCollector (parentService, deviceIdentifier);
             collector->addClient (this);
         }
@@ -766,12 +760,11 @@ private:
         MidiInputDevicesObserver()
         : DeviceChangeDetector{ L"MidiInputDevicesObserver" }
         {
-            DBG("--- Created Midi Input Device Observer");
+            win32NotificationFilter();
         }
     private:
         void systemDeviceChanged() override
         {
-            DBG("--- Notifying system change");
             win32NotificationFilter().notify();
         }
     };
@@ -1133,8 +1126,6 @@ private:
 
         //==============================================================================
         ComSmartPtr<IDeviceWatcher> watcher;
-        std::atomic_bool watchesInput_ = { false };
-
         EventRegistrationToken deviceAddedToken   { 0 },
                                deviceRemovedToken { 0 },
                                deviceUpdatedToken { 0 };
@@ -1199,18 +1190,8 @@ private:
                                          << " " << (info.isConnected ? "connected" : "disconnected"));
                     devices.set (deviceID, info);
 
-                    if (watchesInput_)
-                    {
-                        midiInputSetup().notify();
-                    }
-
                     return S_OK;
                 }
-            }
-
-            if (watchesInput_)
-            {
-                midiInputSetup().notify();
             }
 
             JUCE_WINRT_MIDI_LOG ("Failed to get a container ID for BLE device: " << deviceID);
@@ -1427,11 +1408,6 @@ private:
                 connectedDevices.add (info);
             }
 
-            if (watchesInput_)
-            {
-                midiInputSetup().notify();
-            }
-
             return S_OK;
         }
 
@@ -1488,9 +1464,6 @@ private:
                 JUCE_WINRT_MIDI_LOG ("Failed to get MIDI device selector!");
                 return false;
             }
-
-            watchesInput_ = enumerationThread.waitForThreadToExit(4000)
-                && std::is_same<COMFactoryType, IMidiInPortStatics>::value;
 
             return attach (deviceSelector, DeviceInformationKind::DeviceInformationKind_DeviceInterface);
         }
@@ -2120,12 +2093,12 @@ bool MidiSetup::supportsMidi()
     return true;
 }
 
-void MidiSetup::addListener(MidiSetupListener* const listener)
+void MidiSetup::addListener(MidiSetupListener* listener)
 {
     midiInputSetup().addListener(listener);
 }
 
-void MidiSetup::removeListener(MidiSetupListener* const listener)
+void MidiSetup::removeListener(MidiSetupListener* listener)
 {
     midiInputSetup().removeListener(listener);
 }
