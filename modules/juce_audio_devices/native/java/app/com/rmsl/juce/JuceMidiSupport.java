@@ -555,7 +555,7 @@ public class JuceMidiSupport
             manager.registerDeviceCallback (this, null);
         }
 
-        protected void finalize () throws Throwable
+        public void stop () throws Throwable
         {
             manager.unregisterDeviceCallback (this);
 
@@ -587,6 +587,11 @@ public class JuceMidiSupport
 
             midiDevices.clear ();
 
+        }
+
+        protected void finalize () throws Throwable
+        {
+            stop();
             super.finalize ();
         }
 
@@ -821,6 +826,8 @@ public class JuceMidiSupport
 
         public void onDeviceRemoved (MidiDeviceInfo info)
         {
+            boolean deviceWasRemoved = false;
+
             synchronized (MidiDeviceManager.class)
             {
                 Pair<MidiDevice, BluetoothGatt> devicePair = getMidiDevicePairForId (info.getId ());
@@ -854,7 +861,12 @@ public class JuceMidiSupport
                     }
 
                     midiDevices.remove (devicePair);
+                    deviceWasRemoved = true;
                 }
+            }
+
+            if (deviceWasRemoved) {
+                midiDevicesChanged();
             }
         }
 
@@ -922,6 +934,8 @@ public class JuceMidiSupport
 
         public void onDeviceOpenedDelayed (MidiDevice theDevice)
         {
+            boolean deviceWasAdded = false;
+
             synchronized (MidiDeviceManager.class)
             {
                 int deviceID = theDevice.getInfo ().getId ();
@@ -933,6 +947,7 @@ public class JuceMidiSupport
                         BluetoothGatt gatt = openTasks.get (deviceID).getGatt ();
                         openTasks.remove (deviceID);
                         midiDevices.add (new Pair<MidiDevice, BluetoothGatt> (theDevice, gatt));
+                        deviceWasAdded = true;
                     }
                 } else
                 {
@@ -962,6 +977,10 @@ public class JuceMidiSupport
                     {
                     }
                 }
+            }
+
+            if (deviceWasAdded) {
+                midiDevicesChanged();
             }
         }
 
@@ -1091,4 +1110,6 @@ public class JuceMidiSupport
 
     private static MidiDeviceManager midiDeviceManager = null;
     private static BluetoothManager bluetoothManager = null;
+
+    public static native void midiDevicesChanged();
 }
