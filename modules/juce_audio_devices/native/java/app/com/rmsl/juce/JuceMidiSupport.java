@@ -984,6 +984,18 @@ public class JuceMidiSupport
             }
         }
 
+        public void injectMidiDevice(MidiDevice theDevice)
+        {
+            synchronized (MidiDeviceManager.class)
+            {
+                // Fake JUCE pairing process for already paired device
+                int deviceID = theDevice.getInfo().getId();
+                openTasks.put(deviceID, new MidiDeviceOpenTask(this, theDevice, null));
+            }
+
+            onDeviceOpenedDelayed(theDevice);
+        }
+
         public String getPortName (MidiPortPath path)
         {
             int portTypeToFind = (path.isInput ? MidiDeviceInfo.PortInfo.TYPE_INPUT : MidiDeviceInfo.PortInfo.TYPE_OUTPUT);
