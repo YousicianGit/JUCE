@@ -1126,6 +1126,7 @@ private:
 
         //==============================================================================
         ComSmartPtr<IDeviceWatcher> watcher;
+
         EventRegistrationToken deviceAddedToken   { 0 },
                                deviceRemovedToken { 0 },
                                deviceUpdatedToken { 0 };
@@ -1289,8 +1290,6 @@ private:
         {
             WinRTWrapper::ScopedHString deviceSelector ("System.Devices.Aep.ProtocolId:=\"{bb7bb05e-5972-42b5-94fc-76eaa7084d49}\""
                                                         " AND System.Devices.Aep.IsPaired:=System.StructuredQueryType.Boolean#True");
-            watchesInput_ = enumerationThread.waitForThreadToExit(4000)
-                && std::is_same<COMFactoryType, IMidiInPortStatics>::value;
             return attach (deviceSelector.get(), DeviceInformationKind::DeviceInformationKind_AssociationEndpoint);
         }
 
@@ -1928,6 +1927,7 @@ struct MidiService :  public DeletedAtShutdown
             catch (std::runtime_error&) {}
         }
       #endif
+
         internal.reset (new Win32MidiService());
     }
 
