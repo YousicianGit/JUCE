@@ -24,7 +24,6 @@ namespace juce
 {
 #define JNI_CLASS_MEMBERS(METHOD, STATICMETHOD, FIELD, STATICFIELD, CALLBACK) \
  STATICMETHOD (getAndroidMidiDeviceManager, "getAndroidMidiDeviceManager", "(Landroid/content/Context;)Lcom/rmsl/juce/JuceMidiSupport$MidiDeviceManager;") \
- STATICMETHOD (getAndroidBluetoothManager,  "getAndroidBluetoothManager",  "(Landroid/content/Context;)Lcom/rmsl/juce/JuceMidiSupport$BluetoothManager;")
 
 DECLARE_JNI_CLASS (JuceMidiSupport, "com/rmsl/juce/JuceMidiSupport")
 #undef JNI_CLASS_MEMBERS
