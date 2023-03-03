@@ -85,6 +85,66 @@ public:
     virtual void sendMessageNow (const MidiMessage&) = 0;
 };
 
+namespace
+{
+class MidiInputSetup
+{
+public:
+    void addListener(MidiSetupListener* listener)
+    {
+        ScopedLock lock { mutex_ };
+        listeners_.addIfNotAlreadyThere(listener);
+    }
+
+    void removeListener(MidiSetupListener* listener)
+    {
+        ScopedLock lock { mutex_ };
+        listeners_.removeFirstMatchingValue(listener);
+    }
+
+    void Notify()
+    {
+        ScopedLock lock { mutex_ };
+        for (auto& listener : listeners_)
+            listener->midiDevicesChanged();
+    }
+
+private:
+    CriticalSection mutex_;
+    Array<MidiSetupListener*> listeners_;
+};
+
+MidiInputSetup& midiInputSetup()
+{
+    static MidiInputSetup instance;
+    return instance;
+}
+
+class Win32NotificationFilter
+{
+public:
+    Win32NotificationFilter()
+    : devicesInfo_{ { } }
+    {}
+
+    void notify()
+    {
+        if (std::exchange(devicesInfo_, MidiInput::getAvailableDevices()) != devicesInfo_)
+        {
+            midiInputSetup().Notify();
+        }
+    }
+private:
+    Array<MidiDeviceInfo> devicesInfo_;
+};
+
+Win32NotificationFilter& win32NotificationFilter()
+{
+    static Win32NotificationFilter instance;
+    return instance;
+}
+}
+
 struct MidiServiceType
 {
     MidiServiceType() = default;
@@ -694,6 +754,20 @@ private:
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Win32OutputWrapper)
     };
 
+    class MidiInputDevicesObserver : public DeviceChangeDetector
+    {
+    public:
+        MidiInputDevicesObserver()
+        : DeviceChangeDetector{ L"MidiInputDevicesObserver" }
+        {
+            win32NotificationFilter();
+        }
+    private:
+        void systemDeviceChanged() override
+        {
+            win32NotificationFilter().notify();
+        }
+    };
     //==============================================================================
     void asyncCheckForUnusedCollectors()
     {
@@ -714,6 +788,7 @@ private:
     CriticalSection activeCollectorLock;
     ReferenceCountedArray<MidiInCollector> activeCollectors;
     Array<MidiOutHandle*> activeOutputHandles;
+    MidiInputDevicesObserver observer_;
 };
 
 Array<Win32MidiService::MidiInCollector*, CriticalSection> Win32MidiService::MidiInCollector::activeMidiCollectors;
@@ -2013,4 +2088,18 @@ void MidiOutput::sendMessageNow (const MidiMessage& message)
     internal->sendMessageNow (message);
 }
 
+bool MidiSetup::supportsMidi()
+{
+    return true;
+}
+
+void MidiSetup::addListener(MidiSetupListener* listener)
+{
+    midiInputSetup().addListener(listener);
+}
+
+void MidiSetup::removeListener(MidiSetupListener* listener)
+{
+    midiInputSetup().removeListener(listener);
+}
 } // namespace juce
