@@ -90,7 +90,7 @@ namespace
 class MidiInputSetup
 {
 public:
-    void addListener(MidiSetupListener* const listener)
+    void addListener(MidiSetupListener* listener)
     {
         ScopedLock lock { mutex_ };
         listeners_.addIfNotAlreadyThere(listener);
