@@ -23,7 +23,7 @@
 namespace juce
 {
 #define JNI_CLASS_MEMBERS(METHOD, STATICMETHOD, FIELD, STATICFIELD, CALLBACK) \
- STATICMETHOD (getAndroidMidiDeviceManager, "getAndroidMidiDeviceManager", "(Landroid/content/Context;)Lcom/rmsl/juce/JuceMidiSupport$MidiDeviceManager;") \
+ STATICMETHOD (getAndroidMidiDeviceManager, "getAndroidMidiDeviceManager", "(Landroid/content/Context;)Lcom/rmsl/juce/MidiDeviceManager;") \
 
 DECLARE_JNI_CLASS (JuceMidiSupport, "com/rmsl/juce/JuceMidiSupport")
 #undef JNI_CLASS_MEMBERS
@@ -34,7 +34,7 @@ DECLARE_JNI_CLASS (JuceMidiSupport, "com/rmsl/juce/JuceMidiSupport")
  METHOD (openMidiInputPortWithID,                  "openMidiInputPortWithID",                  "(IJ)Lcom/rmsl/juce/JuceMidiSupport$JuceMidiPort;") \
  METHOD (openMidiOutputPortWithID,                 "openMidiOutputPortWithID",                 "(I)Lcom/rmsl/juce/JuceMidiSupport$JuceMidiPort;")
 
-DECLARE_JNI_CLASS_WITH_MIN_SDK (MidiDeviceManager, "com/rmsl/juce/JuceMidiSupport$MidiDeviceManager", 23)
+DECLARE_JNI_CLASS_WITH_MIN_SDK (MidiDeviceManager, "com/rmsl/juce/MidiDeviceManager", 23)
 #undef JNI_CLASS_MEMBERS
 
 #define JNI_CLASS_MEMBERS(METHOD, STATICMETHOD, FIELD, STATICFIELD, CALLBACK) \
@@ -111,20 +111,20 @@ public:
         env->ReleaseByteArrayElements (byteArray, data, 0);
     }
 
-    static void handleReceive (JNIEnv*, jobject, jlong host, jbyteArray byteArray,
-                               jint offset, jint len, jlong timestamp)
-    {
-        auto* myself = reinterpret_cast<Pimpl*> (host);
-
-        myself->handleMidi (byteArray, offset, len, timestamp);
-    }
-
 private:
     MidiInput* juceMidiInput;
     MidiInputCallback* callback;
     MidiDataConcatenator midiConcatenator;
     GlobalRef javaMidiDevice;
 };
+
+extern "C" JNIEXPORT void Java_com_rmsl_juce_JuceMidiSupport_00024JuceMidiInputPort_handleReceive(
+    JNIEnv*, jobject, jlong host, jbyteArray byteArray, jint offset, jint len, jlong timestamp)
+{
+    auto* myself = reinterpret_cast<MidiInput::Pimpl*> (host);
+
+    myself->handleMidi (byteArray, offset, len, timestamp);
+}
 
 //==============================================================================
 class MidiOutput::Pimpl
@@ -163,13 +163,6 @@ public:
 private:
     GlobalRef javaMidiDevice;
 };
-
-//==============================================================================
-#define JNI_CLASS_MEMBERS(METHOD, STATICMETHOD, FIELD, STATICFIELD, CALLBACK) \
- CALLBACK (MidiInput::Pimpl::handleReceive, "handleReceive", "(J[BIIJ)V" )
-
-DECLARE_JNI_CLASS_WITH_MIN_SDK (JuceMidiInputPort, "com/rmsl/juce/JuceMidiSupport$JuceMidiInputPort", 23)
-#undef JNI_CLASS_MEMBERS
 
 //==============================================================================
 class AndroidMidiDeviceManager

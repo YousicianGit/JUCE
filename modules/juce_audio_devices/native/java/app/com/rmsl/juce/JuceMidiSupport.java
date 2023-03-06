@@ -63,9 +63,9 @@ public class JuceMidiSupport
     //==============================================================================
     public static class JuceMidiInputPort extends MidiReceiver implements JuceMidiPort
     {
-        private native void handleReceive (long host, byte[] msg, int offset, int count, long timestamp);
+        public static native void handleReceive (long host, byte[] msg, int offset, int count, long timestamp);
 
-        public JuceMidiInputPort (MidiDeviceManager mm, MidiOutputPort actualPort, MidiPortPath portPathToUse, long hostToUse)
+        public JuceMidiInputPort (JuceMidiDeviceManager mm, MidiOutputPort actualPort, MidiPortPath portPathToUse, long hostToUse)
         {
             owner = mm;
             androidPort = actualPort;
@@ -150,7 +150,7 @@ public class JuceMidiSupport
             return owner.getPortName (portPath);
         }
 
-        MidiDeviceManager owner;
+        JuceMidiDeviceManager owner;
         MidiOutputPort androidPort;
         MidiPortPath portPath;
         long juceHost;
@@ -159,7 +159,7 @@ public class JuceMidiSupport
 
     public static class JuceMidiOutputPort implements JuceMidiPort
     {
-        public JuceMidiOutputPort (MidiDeviceManager mm, MidiInputPort actualPort, MidiPortPath portPathToUse)
+        public JuceMidiOutputPort (JuceMidiDeviceManager mm, MidiInputPort actualPort, MidiPortPath portPathToUse)
         {
             owner = mm;
             androidPort = actualPort;
@@ -231,7 +231,7 @@ public class JuceMidiSupport
             return owner.getPortName (portPath);
         }
 
-        MidiDeviceManager owner;
+        JuceMidiDeviceManager owner;
         MidiInputPort androidPort;
         MidiPortPath portPath;
     }
@@ -271,12 +271,12 @@ public class JuceMidiSupport
     }
 
     //==============================================================================
-    public static class MidiDeviceManager extends MidiManager.DeviceCallback implements MidiManager.OnDeviceOpenedListener
+    public static class JuceMidiDeviceManager extends MidiManager.DeviceCallback implements MidiManager.OnDeviceOpenedListener, MidiDeviceManager
     {
         //==============================================================================
         private class MidiDeviceOpenTask extends java.util.TimerTask
         {
-            public MidiDeviceOpenTask (MidiDeviceManager deviceManager, MidiDevice device)
+            public MidiDeviceOpenTask (JuceMidiDeviceManager deviceManager, MidiDevice device)
             {
                 owner = deviceManager;
                 midiDevice = device;
@@ -321,12 +321,12 @@ public class JuceMidiSupport
                 }
             }
 
-            private MidiDeviceManager owner;
+            private JuceMidiDeviceManager owner;
             private MidiDevice midiDevice;
         }
 
         //==============================================================================
-        public MidiDeviceManager (Context contextToUse)
+        public JuceMidiDeviceManager(Context contextToUse)
         {
             appContext = contextToUse;
             manager = (MidiManager) appContext.getSystemService (MIDI_SERVICE);
@@ -348,11 +348,11 @@ public class JuceMidiSupport
             manager.registerDeviceCallback (this, null);
         }
 
-        public void stop () throws Throwable
+        public void detach () throws Throwable
         {
             manager.unregisterDeviceCallback (this);
 
-            synchronized (MidiDeviceManager.class)
+            synchronized (JuceMidiDeviceManager.class)
             {
                 for (Integer deviceID : openTasks.keySet ())
                     openTasks.get (deviceID).cancel ();
@@ -376,16 +376,18 @@ public class JuceMidiSupport
 
         protected void finalize () throws Throwable
         {
-            stop();
+            detach();
             super.finalize ();
         }
 
-        public String[] getJuceAndroidMidiOutputDeviceNameAndIDs ()
+        @Override
+        public String[] getJuceAndroidMidiOutputDeviceNameAndIDs()
         {
             return getJuceAndroidMidiDeviceNameAndIDs (MidiDeviceInfo.PortInfo.TYPE_OUTPUT);
         }
 
-        public String[] getJuceAndroidMidiInputDeviceNameAndIDs ()
+        @Override
+        public String[] getJuceAndroidMidiInputDeviceNameAndIDs()
         {
             return getJuceAndroidMidiDeviceNameAndIDs (MidiDeviceInfo.PortInfo.TYPE_INPUT);
         }
@@ -393,7 +395,7 @@ public class JuceMidiSupport
         private String[] getJuceAndroidMidiDeviceNameAndIDs (int portType)
         {
             // only update the list when JUCE asks for a new list
-            synchronized (MidiDeviceManager.class)
+            synchronized (JuceMidiDeviceManager.class)
             {
                 deviceInfos = getDeviceInfos ();
             }
@@ -412,7 +414,7 @@ public class JuceMidiSupport
 
         private JuceMidiPort openMidiPortWithID (int deviceID, long host, boolean isInput)
         {
-            synchronized (MidiDeviceManager.class)
+            synchronized (JuceMidiDeviceManager.class)
             {
                 int portTypeToFind = (isInput ? MidiDeviceInfo.PortInfo.TYPE_INPUT : MidiDeviceInfo.PortInfo.TYPE_OUTPUT);
                 MidiPortPath portInfo = getPortPathForID (portTypeToFind, deviceID);
@@ -459,12 +461,14 @@ public class JuceMidiSupport
             return null;
         }
 
-        public JuceMidiPort openMidiInputPortWithID (int deviceID, long host)
+        @Override
+        public JuceMidiPort openMidiInputPortWithID(int deviceID, long host)
         {
             return openMidiPortWithID (deviceID, host, true);
         }
 
-        public JuceMidiPort openMidiOutputPortWithID (int deviceID)
+        @Override
+        public JuceMidiPort openMidiOutputPortWithID(int deviceID)
         {
             return openMidiPortWithID (deviceID, 0, false);
         }
@@ -486,7 +490,7 @@ public class JuceMidiSupport
         {
             boolean deviceWasRemoved = false;
 
-            synchronized (MidiDeviceManager.class)
+            synchronized (JuceMidiDeviceManager.class)
             {
                 MidiDevice midiDevice = getMidiDevicePairForId (info.getId ());
 
@@ -528,7 +532,7 @@ public class JuceMidiSupport
         {
             Log.i("JuceMidiSupport", "onDeviceOpened device=" + theDevice.getInfo().getProperties().getString(MidiDeviceInfo.PROPERTY_NAME));
 
-            synchronized (MidiDeviceManager.class)
+            synchronized (JuceMidiDeviceManager.class)
             {
                 MidiDeviceInfo info = theDevice.getInfo ();
                 int deviceID = info.getId ();
@@ -547,7 +551,7 @@ public class JuceMidiSupport
         {
             boolean deviceWasAdded = false;
 
-            synchronized (MidiDeviceManager.class)
+            synchronized (JuceMidiDeviceManager.class)
             {
                 int deviceID = theDevice.getInfo ().getId ();
 
@@ -577,9 +581,10 @@ public class JuceMidiSupport
             }
         }
 
+        @Override
         public void injectMidiDevice(MidiDevice theDevice)
         {
-            synchronized (MidiDeviceManager.class)
+            synchronized (JuceMidiDeviceManager.class)
             {
                 // Fake JUCE pairing process for already paired device
                 int deviceID = theDevice.getInfo().getId();
@@ -593,7 +598,7 @@ public class JuceMidiSupport
         {
             int portTypeToFind = (path.isInput ? MidiDeviceInfo.PortInfo.TYPE_INPUT : MidiDeviceInfo.PortInfo.TYPE_OUTPUT);
 
-            synchronized (MidiDeviceManager.class)
+            synchronized (JuceMidiDeviceManager.class)
             {
                 for (MidiDeviceInfo info : deviceInfos)
                 {
@@ -647,7 +652,7 @@ public class JuceMidiSupport
 
         private MidiDeviceInfo[] getDeviceInfos ()
         {
-            synchronized (MidiDeviceManager.class)
+            synchronized (JuceMidiDeviceManager.class)
             {
                 MidiDeviceInfo[] infos = new MidiDeviceInfo[midiDevices.size ()];
 
@@ -661,7 +666,7 @@ public class JuceMidiSupport
 
         private MidiDevice getMidiDevicePairForId (int deviceId)
         {
-            synchronized (MidiDeviceManager.class)
+            synchronized (JuceMidiDeviceManager.class)
             {
                 for (MidiDevice midiDevice : midiDevices)
                     if (midiDevice.getInfo ().getId () == deviceId)
@@ -687,7 +692,7 @@ public class JuceMidiSupport
         synchronized (JuceMidiSupport.class)
         {
             if (midiDeviceManager == null)
-                midiDeviceManager = new MidiDeviceManager (context);
+                midiDeviceManager = new JuceMidiDeviceManager(context);
         }
 
         return midiDeviceManager;
