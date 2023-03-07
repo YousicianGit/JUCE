@@ -483,9 +483,6 @@ public class JuceMidiSupport
 
         public void onDeviceAdded (MidiDeviceInfo info)
         {
-            // Upstream JUCE filters out Bluetooth devices paired outside JUCE here. The filter is
-            // removed to keep behavior consistent with previous Yousician versions and other apps.
-            Log.i("JuceMidiSupport", "onDeviceAdded device=" + info.getProperties().getString(MidiDeviceInfo.PROPERTY_NAME));
             manager.openDevice (info, this, null);
         }
 
@@ -533,8 +530,6 @@ public class JuceMidiSupport
         @Override
         public void onDeviceOpened (MidiDevice theDevice)
         {
-            Log.i("JuceMidiSupport", "onDeviceOpened device=" + theDevice.getInfo().getProperties().getString(MidiDeviceInfo.PROPERTY_NAME));
-
             synchronized (JuceMidiDeviceManager.class)
             {
                 MidiDeviceInfo info = theDevice.getInfo ();
@@ -696,18 +691,15 @@ public class JuceMidiSupport
                 if (midiSupport.isAndroidMidiSupported()) {
                     if (midiSupport.hasFallbackMidiDriver() && midiSupport.isMidiFallbackDriverEnabled())
                     {
-                        Log.i("JuceMidiSupport", "Creating MidiUsbToJuce");
                         midiDeviceManager = new MidiUsbToJuce.MidiDeviceManager(context);
                     }
                     else
                     {
-                        Log.i("JuceMidiSupport", "Creating JuceMidiDeviceManager");
                         midiDeviceManager = new JuceMidiDeviceManager(context);
                     }
                 }
                 else if (midiSupport.isMidiSupported())
                 {
-                    Log.i("JuceMidiSupport", "Creating MidiUsbToJuce as only choice");
                     // If we're here, only fallback driver is supported
                     midiDeviceManager = new MidiUsbToJuce.MidiDeviceManager(context);
                 }
