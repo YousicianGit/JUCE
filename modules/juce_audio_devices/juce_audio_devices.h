@@ -162,6 +162,7 @@
 //==============================================================================
 #include "midi_io/juce_MidiDevices.h"
 #include "midi_io/juce_MidiMessageCollector.h"
+#include "midi_io/juce_MidiSetup.h"
 
 namespace juce
 {
