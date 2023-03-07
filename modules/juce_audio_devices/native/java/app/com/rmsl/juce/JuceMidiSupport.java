@@ -40,6 +40,9 @@ import java.util.HashMap;
 
 import static android.content.Context.MIDI_SERVICE;
 
+import com.yousician.yousiciannative.MidiSupport;
+import com.yousician.yousiciannative.MidiUsbToJuce;
+
 public class JuceMidiSupport
 {
     //==============================================================================
@@ -686,16 +689,54 @@ public class JuceMidiSupport
 
     public static MidiDeviceManager getAndroidMidiDeviceManager (Context context)
     {
-        if (context.getSystemService (MIDI_SERVICE) == null)
-            return null;
-
         synchronized (JuceMidiSupport.class)
         {
-            if (midiDeviceManager == null)
-                midiDeviceManager = new JuceMidiDeviceManager(context);
+            if (midiDeviceManager == null) {
+                MidiSupport midiSupport = MidiSupport.getInstance();
+                if (midiSupport.isAndroidMidiSupported()) {
+                    if (midiSupport.hasFallbackMidiDriver() && midiSupport.isMidiFallbackDriverEnabled())
+                    {
+                        Log.i("JuceMidiSupport", "Creating MidiUsbToJuce");
+                        midiDeviceManager = new MidiUsbToJuce.MidiDeviceManager(context);
+                    }
+                    else
+                    {
+                        Log.i("JuceMidiSupport", "Creating JuceMidiDeviceManager");
+                        midiDeviceManager = new JuceMidiDeviceManager(context);
+                    }
+                }
+                else if (midiSupport.isMidiSupported())
+                {
+                    Log.i("JuceMidiSupport", "Creating MidiUsbToJuce as only choice");
+                    // If we're here, only fallback driver is supported
+                    midiDeviceManager = new MidiUsbToJuce.MidiDeviceManager(context);
+                }
+
+            }
         }
 
         return midiDeviceManager;
+    }
+
+    public static void resetAndroidMidiDeviceManager(Context context)
+    {
+        synchronized (JuceMidiSupport.class)
+        {
+            if (midiDeviceManager != null)
+            {
+                try
+                {
+                    midiDeviceManager.detach();
+                }
+                catch (Throwable tr)
+                {
+                    Log.e("JuceMidiSupport", "Detaching midiDeviceManager", tr);
+                }
+                midiDeviceManager = null;
+            }
+        }
+
+        getAndroidMidiDeviceManager(context);
     }
 
     private static MidiDeviceManager midiDeviceManager = null;
