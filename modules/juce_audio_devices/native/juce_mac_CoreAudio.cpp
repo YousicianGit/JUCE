@@ -339,6 +339,8 @@ public:
         stop (false);
     }
 
+    AudioDeviceID const* getDeviceID() const { return &deviceID; }
+
     auto getStreams() const { return std::array<Stream*, 2> { { inStream.get(), outStream.get() } }; }
 
     void allocateTempBuffers()
@@ -1215,6 +1217,8 @@ public:
 
         AudioObjectRemovePropertyListener (kAudioObjectSystemObject, &pa, hardwareListenerProc, internal.get());
     }
+
+    void const* getNativeDeviceID() const noexcept override { return internal->getDeviceID(); }
 
     StringArray getOutputChannelNames() override        { return internal->outStream != nullptr ? internal->outStream->chanNames : StringArray(); }
     StringArray getInputChannelNames() override         { return internal->inStream  != nullptr ? internal->inStream ->chanNames : StringArray(); }
