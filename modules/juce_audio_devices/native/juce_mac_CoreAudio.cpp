@@ -616,6 +616,36 @@ public:
     }
 
     //==============================================================================
+    /**
+     * When an audio device is opened, by default CoreAudio opens all input and output channels. macOS requires
+     * microphone permission for audio input, so just starting output on a full duplex device would trigger microphone
+     * permission dialog. To avoid this, unused channels are disabled before starting the device. In principle the same
+     * could be done to outputs too, but it seems that the extra outputs don't cause any problems.
+     */
+    bool configureInputChannels(AudioDeviceIOProcID procID) const
+    {
+        // If no inputs are requested, inStream is initialized to null
+        UInt32 const channelCount = inStream ? inStream->chanNames.size() : 0;
+        UInt32 const size = sizeof(AudioHardwareIOProcStreamUsage)
+            + channelCount * sizeof(AudioHardwareIOProcStreamUsage::mStreamIsOn[0]);
+
+        AudioObjectPropertyAddress pa;
+        pa.mSelector = kAudioDevicePropertyIOProcStreamUsage;
+        pa.mScope = kAudioDevicePropertyScopeInput;
+        pa.mElement = kAudioObjectPropertyElementMaster;
+
+        HeapBlock<AudioHardwareIOProcStreamUsage> streamUsage;
+        streamUsage.calloc(size, 1);
+        streamUsage->mIOProc = (void*)procID;
+        streamUsage->mNumberStreams = channelCount;
+        if (inStream)
+        {
+            for (auto& input : inStream->channelInfo)
+                streamUsage->mStreamIsOn[input.streamNum] = 1;
+        }
+        return OK(AudioObjectSetPropertyData(deviceID, &pa, 0, 0, size, streamUsage));
+    }
+
     String reopen (const BigInteger& ins, const BigInteger& outs, double newSampleRate, int bufferSizeSamples)
     {
         callbacksAllowed = false;
@@ -692,7 +722,7 @@ public:
                 {
                     const ScopedUnlock su (lock);
 
-                    if (self.OK (AudioDeviceStart (deviceID, procID)))
+                    if (self.configureInputChannels(procID) && self.OK (AudioDeviceStart (deviceID, procID)))
                         return std::move (nextProcID);
                 }
 
