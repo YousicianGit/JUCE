@@ -45,6 +45,9 @@ import com.yousician.yousiciannative.MidiUsbToJuce;
 
 public class JuceMidiSupport
 {
+    // Yousician patch: All Bluetooth awareness by JUCE has been removed to allow selecting which
+    // keyboard is paired and to allow the app to work with keyboards paired using other apps.
+
     //==============================================================================
     public interface JuceMidiPort
     {
@@ -351,6 +354,7 @@ public class JuceMidiSupport
             manager.registerDeviceCallback (this, null);
         }
 
+        @Override
         public void detach () throws Throwable
         {
             manager.unregisterDeviceCallback (this);
