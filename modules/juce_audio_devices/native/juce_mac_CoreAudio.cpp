@@ -2197,6 +2197,12 @@ public:
                               : outputDeviceNames;
     }
 
+    int64 getDeviceId (String deviceName, bool forInput) const override
+    {
+        auto const index = (forInput ? inputDeviceNames : outputDeviceNames).indexOf(deviceName);
+        return index >= 0 ? static_cast<int64>((forInput ? inputIds : outputIds)[index]) : -1;
+    }
+
     int getDefaultDeviceIndex (bool forInput) const override
     {
         jassert (hasScanned); // need to call scanForDevices() before doing this
