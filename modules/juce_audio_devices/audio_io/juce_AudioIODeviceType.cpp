@@ -41,6 +41,11 @@ void AudioIODeviceType::callDeviceChangeListeners()
     listeners.call ([] (Listener& l) { l.audioDeviceListChanged(); });
 }
 
+int64 AudioIODeviceType::getDeviceId (String, bool) const
+{
+    return hasSeparateInputsAndOutputs() ? -1 : 0;
+}
+
 //==============================================================================
 #if JUCE_MAC
  AudioIODeviceType* AudioIODeviceType::createAudioIODeviceType_CoreAudio()  { return new CoreAudioClasses::CoreAudioIODeviceType(); }
