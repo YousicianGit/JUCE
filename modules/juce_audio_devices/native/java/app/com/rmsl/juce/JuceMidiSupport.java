@@ -488,7 +488,9 @@ public class JuceMidiSupport
         @Override
         public void onDeviceAdded (MidiDeviceInfo info)
         {
-            manager.openDevice (info, this, null);
+            if (info.getType() != MidiDeviceInfo.TYPE_BLUETOOTH) {
+                manager.openDevice(info, this, null);
+            }
         }
 
         @Override
