@@ -485,12 +485,14 @@ public class JuceMidiSupport
             openPorts.remove (path);
         }
 
+        @Override
         public void onDeviceAdded (MidiDeviceInfo info)
         {
             manager.openDevice (info, this, null);
         }
 
-        public void onDeviceRemoved (MidiDeviceInfo info)
+        @Override
+        public void onDeviceRemoved(MidiDeviceInfo info)
         {
             boolean deviceWasRemoved = false;
 
@@ -527,6 +529,7 @@ public class JuceMidiSupport
             }
         }
 
+        @Override
         public void onDeviceStatusChanged (MidiDeviceStatus status)
         {
         }
