@@ -343,10 +343,6 @@ public class JuceMidiSupport
                 return;
             }
 
-            openPorts = new HashMap<MidiPortPath, WeakReference<JuceMidiPort>> ();
-            midiDevices = new ArrayList<MidiDevice> ();
-            openTasks = new HashMap<Integer, MidiDeviceOpenTask> ();
-
             MidiDeviceInfo[] foundDevices = manager.getDevices ();
             for (MidiDeviceInfo info : foundDevices)
                 onDeviceAdded (info);
@@ -357,28 +353,30 @@ public class JuceMidiSupport
         @Override
         public void detach () throws Throwable
         {
-            manager.unregisterDeviceCallback (this);
+            if (manager != null)
+            {
+                manager.unregisterDeviceCallback (this);
+            }
 
             synchronized (JuceMidiDeviceManager.class)
             {
                 for (Integer deviceID : openTasks.keySet ())
                     openTasks.get (deviceID).cancel ();
 
-                openTasks = null;
+                openTasks.clear ();
+
+                for (MidiPortPath key : openPorts.keySet ())
+                    openPorts.get (key).get ().close ();
+
+                openPorts.clear ();
+
+                for (MidiDevice device : midiDevices)
+                {
+                    device.close ();
+                }
+
+                midiDevices.clear ();
             }
-
-            for (MidiPortPath key : openPorts.keySet ())
-                openPorts.get (key).get ().close ();
-
-            openPorts = null;
-
-            for (MidiDevice device : midiDevices)
-            {
-                device.close ();
-            }
-
-            midiDevices.clear ();
-
         }
 
         protected void finalize () throws Throwable
@@ -683,12 +681,12 @@ public class JuceMidiSupport
             return null;
         }
 
-        private MidiManager manager;
-        private HashMap<Integer, MidiDeviceOpenTask> openTasks;
-        private ArrayList<MidiDevice> midiDevices;
+        private final MidiManager manager;
+        private final HashMap<Integer, MidiDeviceOpenTask> openTasks = new HashMap<> ();
+        private final ArrayList<MidiDevice> midiDevices = new ArrayList<> ();;
         private MidiDeviceInfo[] deviceInfos;
-        private HashMap<MidiPortPath, WeakReference<JuceMidiPort>> openPorts;
-        private Context appContext = null;
+        private final HashMap<MidiPortPath, WeakReference<JuceMidiPort>> openPorts = new HashMap<> ();
+        private final Context appContext;
     }
 
     public static MidiDeviceManager getAndroidMidiDeviceManager (Context context)
