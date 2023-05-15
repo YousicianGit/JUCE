@@ -365,7 +365,8 @@ public class JuceMidiSupport
 
                 openTasks.clear ();
 
-                for (MidiPortPath key : openPorts.keySet ())
+                // The list of ports is copied to avoid concurrent modification exception
+                for (MidiPortPath key : new ArrayList<>(openPorts.keySet ()))
                     openPorts.get (key).get ().close ();
 
                 openPorts.clear ();
