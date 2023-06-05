@@ -1204,8 +1204,7 @@ private:
 
 
 //==============================================================================
-class CoreAudioIODevice   : public AudioIODevice,
-                            private Timer
+class CoreAudioIODevice   : public AudioIODevice
 {
 public:
     CoreAudioIODevice (CoreAudioIODeviceType* dt,
@@ -1241,6 +1240,7 @@ public:
     ~CoreAudioIODevice() override
     {
         close();
+        handle_.reset();
 
         AudioObjectPropertyAddress pa;
         pa.mSelector = kAudioObjectPropertySelectorWildcard;
@@ -1373,7 +1373,7 @@ public:
             previousCallback = stopInternal();
         }
 
-        startTimer (100);
+        replaceSubscription(handle_, [this] { timerCallback(); }, std::chrono::milliseconds{ 100 });
     }
 
     bool setCurrentSampleRate (double newSampleRate)
@@ -1401,10 +1401,10 @@ private:
     BigInteger inputChannelsRequested, outputChannelsRequested;
     CriticalSection closeLock;
 
-    void timerCallback() override
-    {
-        stopTimer();
+    EventLoop::RaiiHandle handle_;
 
+    void timerCallback()
+    {
         stopInternal();
 
         internal->updateDetailsFromDevice();
