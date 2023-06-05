@@ -698,7 +698,7 @@ public:
 
     void resetRequest() noexcept
     {
-        startTimer (500);
+        replaceSubscription(handle_, [this] { timerCallback(); }, std::chrono::milliseconds{ 500 });
     }
 
     void timerCallback() override
@@ -765,6 +765,8 @@ private:
     bool insideControlPanelModalLoop = false;
     bool shouldUsePreferredSize = false;
     int xruns = 0;
+
+    EventLoop::RaiiHandle handle_;
 
     //==============================================================================
     static String convertASIOString (char* text, int length)
