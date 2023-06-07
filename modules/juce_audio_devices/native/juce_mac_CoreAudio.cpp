@@ -292,8 +292,7 @@ class CoreAudioIODeviceType;
 class CoreAudioIODevice;
 
 //==============================================================================
-class CoreAudioInternal  : private Timer,
-                           private AsyncUpdater
+class CoreAudioInternal  : private AsyncUpdater
 {
 private:
     // members with deduced return types need to be defined before they
@@ -326,7 +325,7 @@ public:
 
     ~CoreAudioInternal() override
     {
-        stopTimer();
+        handle_.reset();
         cancelPendingUpdate();
 
         AudioObjectPropertyAddress pa;
@@ -448,7 +447,7 @@ public:
 
     bool updateDetailsFromDevice (const BigInteger& activeIns, const BigInteger& activeOuts)
     {
-        stopTimer();
+        handle_.reset();
 
         if (! isDeviceAlive())
             return false;
@@ -651,7 +650,7 @@ public:
         callbacksAllowed = false;
         const ScopeGuard scope { [&] { callbacksAllowed = true; } };
 
-        stopTimer();
+        handle_.reset();
 
         stop (false);
 
@@ -847,8 +846,10 @@ public:
     // called by callbacks (possibly off the main thread)
     void deviceDetailsChanged()
     {
-        if (callbacksAllowed.get() == 1)
-            startTimer (100);
+        if (callbacksAllowed.get())
+        {
+            replaceSubscription(handle_, [this] { timerCallback(); }, std::chrono::milliseconds{ 100 });
+        }
     }
 
     // called by callbacks (possibly off the main thread)
@@ -1112,12 +1113,13 @@ private:
     HeapBlock<float> audioBuffer;
     Atomic<int> callbacksAllowed { 1 };
 
+    EventLoop::RaiiHandle handle_;
+
     //==============================================================================
-    void timerCallback() override
+    void timerCallback()
     {
         JUCE_COREAUDIOLOG ("Device changed");
 
-        stopTimer();
         auto oldSampleRate = sampleRate;
         auto oldBufferSize = bufferSize;
 
@@ -1202,8 +1204,7 @@ private:
 
 
 //==============================================================================
-class CoreAudioIODevice   : public AudioIODevice,
-                            private Timer
+class CoreAudioIODevice   : public AudioIODevice
 {
 public:
     CoreAudioIODevice (CoreAudioIODeviceType* dt,
@@ -1239,6 +1240,7 @@ public:
     ~CoreAudioIODevice() override
     {
         close();
+        handle_.reset();
 
         AudioObjectPropertyAddress pa;
         pa.mSelector = kAudioObjectPropertySelectorWildcard;
@@ -1371,7 +1373,7 @@ public:
             previousCallback = stopInternal();
         }
 
-        startTimer (100);
+        replaceSubscription(handle_, [this] { timerCallback(); }, std::chrono::milliseconds{ 100 });
     }
 
     bool setCurrentSampleRate (double newSampleRate)
@@ -1399,10 +1401,10 @@ private:
     BigInteger inputChannelsRequested, outputChannelsRequested;
     CriticalSection closeLock;
 
-    void timerCallback() override
-    {
-        stopTimer();
+    EventLoop::RaiiHandle handle_;
 
+    void timerCallback()
+    {
         stopInternal();
 
         internal->updateDetailsFromDevice();
@@ -2281,8 +2283,13 @@ public:
 
     void audioDeviceListChanged()
     {
-        scanForDevices();
-        callDeviceChangeListeners();
+        replaceSubscription(
+            handle_,
+            [this] {
+                scanForDevices();
+                callDeviceChangeListeners();
+            },
+            {});
     }
 
     //==============================================================================
@@ -2291,6 +2298,7 @@ private:
     Array<AudioDeviceID> inputIds, outputIds;
 
     bool hasScanned = false;
+    EventLoop::RaiiHandle handle_;
 
     void handleAsyncUpdate() override
     {
