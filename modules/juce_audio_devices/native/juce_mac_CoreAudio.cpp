@@ -618,29 +618,36 @@ public:
     /**
      * When an audio device is opened, by default CoreAudio opens all input and output channels. macOS requires
      * microphone permission for audio input, so just starting output on a full duplex device would trigger microphone
-     * permission dialog. To avoid this, unused channels are disabled before starting the device. In principle the same
-     * could be done to outputs too, but it seems that the extra outputs don't cause any problems.
+     * permission dialog and mic indicator. To avoid this, unused channels are disabled before starting the device.
+     * In principle the same could be done to outputs too, but it seems that the extra outputs don't cause any problems.
      */
-    bool configureInputChannels(AudioDeviceIOProcID procID) const
+    bool configureInputStreams(AudioDeviceIOProcID procID) const
     {
-        // If no inputs are requested, inStream is initialized to null
-        UInt32 const channelCount = inStream ? inStream->chanNames.size() : 0;
-        UInt32 const size = sizeof(AudioHardwareIOProcStreamUsage)
-            + channelCount * sizeof(AudioHardwareIOProcStreamUsage::mStreamIsOn[0]);
-
         AudioObjectPropertyAddress pa;
         pa.mSelector = kAudioDevicePropertyIOProcStreamUsage;
         pa.mScope = kAudioDevicePropertyScopeInput;
-        pa.mElement = kAudioObjectPropertyElementMaster;
+        pa.mElement = juceAudioObjectPropertyElementMain;
+
+        UInt32 size = 0;
+        auto result = AudioObjectGetPropertyDataSize(deviceID, &pa, 0, nullptr, &size);
+        if (!OK(result))
+            return false;
 
         HeapBlock<AudioHardwareIOProcStreamUsage> streamUsage;
         streamUsage.calloc(size, 1);
-        streamUsage->mIOProc = (void*)procID;
-        streamUsage->mNumberStreams = channelCount;
-        if (inStream)
+
+        // sizeof(AudioHardwareIOProcStreamUsage) includes one element of mStreamIsOn that must be subtracted. The
+        // computation order is what it is to avoid unsigned underflow if number of streams is zero.
+        UInt32 numStreams =
+            (size + sizeof(AudioHardwareIOProcStreamUsage::mStreamIsOn) - sizeof(AudioHardwareIOProcStreamUsage))
+            / sizeof(AudioHardwareIOProcStreamUsage::mStreamIsOn[0]);
+        streamUsage->mIOProc = reinterpret_cast<void*>(procID);
+        streamUsage->mNumberStreams = numStreams;
+
+        for (UInt32 i = 0; i < numStreams; i++)
         {
-            for (auto& input : inStream->channelInfo)
-                streamUsage->mStreamIsOn[input.streamNum] = 1;
+			// If no inputs are requested, inStream is initialized to null
+            streamUsage->mStreamIsOn[i] = inStream ? 1 : 0;
         }
         return OK(AudioObjectSetPropertyData(deviceID, &pa, 0, 0, size, streamUsage));
     }
@@ -721,7 +728,7 @@ public:
                 {
                     const ScopedUnlock su (lock);
 
-                    if (self.configureInputChannels(procID) && self.OK (AudioDeviceStart (deviceID, procID)))
+                    if (self.configureInputStreams(procID) && self.OK (AudioDeviceStart (deviceID, procID)))
                         return std::move (nextProcID);
                 }
 
