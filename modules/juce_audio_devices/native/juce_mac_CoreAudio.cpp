@@ -789,6 +789,22 @@ public:
         const auto numInputChans  = getChannels (inStream);
         const auto numOutputChans = getChannels (outStream);
 
+        // With Bluetooth headset microphone, the buffer from macOS may be limited smaller than configured buffer size.
+        // For non-Bluetooth inputs and outputs changing sample rate does not change buffer size, and buffer size
+        // doesn't seem to be increased. The data here format is always 32-bit float so byte size is divided by 4 to get
+        // frame count even if bitDepth is something else than 32.
+        int currentBufferSize = 0;
+        if (inInputData->mNumberBuffers > 0)
+        {
+            auto const& inputBuffer = inInputData->mBuffers[0];
+            currentBufferSize = inputBuffer.mDataByteSize / inputBuffer.mNumberChannels / 4;
+        }
+        else if (outOutputData->mNumberBuffers > 0)
+        {
+            auto const& outputBuffer = outOutputData->mBuffers[0];
+            currentBufferSize = outputBuffer.mDataByteSize / outputBuffer.mNumberChannels / 4;
+        }
+
         if (callback != nullptr)
         {
             for (int i = numInputChans; --i >= 0;)
@@ -800,7 +816,7 @@ public:
 
                 if (stride != 0) // if this is zero, info is invalid
                 {
-                    for (int j = bufferSize; --j >= 0;)
+                    for (int j = currentBufferSize; --j >= 0;)
                     {
                         *dest++ = *src;
                         src += stride;
@@ -818,7 +834,7 @@ public:
 
             callback->audioDeviceIOCallbackWithContext (getTempBuffers (inStream),  numInputChans,
                                                         getTempBuffers (outStream), numOutputChans,
-                                                        bufferSize,
+                                                        currentBufferSize,
                                                         { timeStamp != nullptr ? &nanos : nullptr });
 
             for (int i = numOutputChans; --i >= 0;)
@@ -830,7 +846,7 @@ public:
 
                 if (stride != 0) // if this is zero, info is invalid
                 {
-                    for (int j = bufferSize; --j >= 0;)
+                    for (int j = currentBufferSize; --j >= 0;)
                     {
                         *dest = *src++;
                         dest += stride;
@@ -847,7 +863,7 @@ public:
 
         for (auto* stream : getStreams())
             if (stream != nullptr)
-                stream->previousSampleTime += static_cast<Float64> (bufferSize);
+                stream->previousSampleTime += static_cast<Float64> (currentBufferSize);
     }
 
     // called by callbacks (possibly off the main thread)
