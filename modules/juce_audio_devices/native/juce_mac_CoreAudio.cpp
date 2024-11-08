@@ -1183,7 +1183,9 @@ private:
 
             case kAudioDevicePropertyBufferSize:
             case kAudioDevicePropertyBufferFrameSize:
-            case kAudioDevicePropertyNominalSampleRate:
+            // The sample rate monitoring here isn't reliable for some reason so we handle it on Yousician side
+            // - Juhani Simola 2024-11-8
+            // case kAudioDevicePropertyNominalSampleRate:
             case kAudioDevicePropertyStreamFormat:
             case kAudioDevicePropertyDeviceIsAlive:
             case kAudioStreamPropertyPhysicalFormat:
