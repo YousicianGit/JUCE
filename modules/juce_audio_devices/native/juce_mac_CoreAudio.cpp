@@ -789,20 +789,24 @@ public:
         const auto numInputChans  = getChannels (inStream);
         const auto numOutputChans = getChannels (outStream);
 
-        // With Bluetooth headset microphone, the buffer from macOS may be limited smaller than configured buffer size.
-        // For non-Bluetooth inputs and outputs changing sample rate does not change buffer size, and buffer size
-        // doesn't seem to be increased. The data here format is always 32-bit float so byte size is divided by 4 to get
-        // frame count even if bitDepth is something else than 32.
+        // With Bluetooth headset microphone, the buffer from macOS may be smaller than configured buffer size. For
+        // non-Bluetooth inputs and outputs changing sample rate does not change buffer size, but the requested
+        // output buffer size may be larger than configured for some other reasons (not that we could handle it
+        // otherwise than not running over then internal buffer and leaving some of the requested output empty).
+        // The data here format is always 32-bit float so byte size is divided by sizeof(float) to get frame count even
+        // if bitDepth is something else than 32.
         int currentBufferSize = 0;
         if (inInputData->mNumberBuffers > 0)
         {
             auto const& inputBuffer = inInputData->mBuffers[0];
-            currentBufferSize = inputBuffer.mDataByteSize / inputBuffer.mNumberChannels / 4;
+            currentBufferSize = jmin(static_cast<unsigned long>(bufferSize),
+                                     inputBuffer.mDataByteSize / inputBuffer.mNumberChannels / sizeof(float));
         }
         else if (outOutputData->mNumberBuffers > 0)
         {
             auto const& outputBuffer = outOutputData->mBuffers[0];
-            currentBufferSize = outputBuffer.mDataByteSize / outputBuffer.mNumberChannels / 4;
+            currentBufferSize = jmin(static_cast<unsigned long>(bufferSize),
+                                     outputBuffer.mDataByteSize / outputBuffer.mNumberChannels / sizeof(float));
         }
 
         if (callback != nullptr)
