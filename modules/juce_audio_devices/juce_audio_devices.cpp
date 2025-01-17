@@ -47,7 +47,7 @@
 
 #include "audio_io/juce_SampleRateHelpers.cpp"
 
-#include "EventLoop.h"
+#include "YsJuce/EventLoop.h"
 
 //==============================================================================
 #if JUCE_MAC || JUCE_IOS
