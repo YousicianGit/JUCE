@@ -80,6 +80,7 @@
   #include <unistd.h>
   #include <netinet/in.h>
   #include <sys/stat.h>
+  #include <emscripten/emscripten.h>
  #endif
 
  #if JUCE_LINUX || JUCE_BSD
@@ -186,7 +187,10 @@
 #include "zip/juce_ZipFile.cpp"
 #include "files/juce_FileFilter.cpp"
 #include "files/juce_WildcardFileFilter.cpp"
+
+#if ! JUCE_WASM
 #include "native/juce_native_ThreadPriorities.h"
+#endif
 
 //==============================================================================
 #if ! JUCE_WINDOWS
