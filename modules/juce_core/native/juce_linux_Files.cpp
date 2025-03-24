@@ -146,14 +146,20 @@ File File::getSpecialLocation (const SpecialLocationType type)
         case currentExecutableFile:
         case currentApplicationFile:
         {
+#if ! JUCE_WASM
             const auto f = juce_getExecutableFile();
             return f.isSymbolicLink() ? f.getLinkedTarget() : f;
+#else
+            return {};
+#endif
         }
 
         case hostApplicationPath:
         {
            #if JUCE_BSD
             return juce_getExecutableFile();
+           #elif JUCE_WASM
+            return {};
            #else
             const File f ("/proc/self/exe");
             return f.isSymbolicLink() ? f.getLinkedTarget() : juce_getExecutableFile();

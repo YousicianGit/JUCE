@@ -271,6 +271,36 @@
  // If you are getting include errors here, then you to re-build the Projucer
  // and re-save your .jucer file.
  #include <cpu-features.h>
+#elif JUCE_WASM
+ // #include <arpa/inet.h>
+ #include <dlfcn.h>
+ #include <errno.h>
+ #include <fcntl.h>
+ #include <fnmatch.h>
+ // #include <net/if.h>
+ // #include <netdb.h>
+ // #include <netinet/in.h>
+ // #include <pthread.h>
+ #include <pwd.h>
+ // #include <sched.h>
+ // #include <signal.h>
+ #include <stddef.h>
+ #include <sys/dir.h>
+ #include <sys/file.h>
+ #include <sys/ioctl.h>
+ #include <sys/mman.h>
+ // #include <sys/prctl.h>
+ // #include <sys/ptrace.h>
+ // #include <sys/socket.h>
+ #include <sys/stat.h>
+ #include <sys/syscall.h>
+ #include <sys/sysinfo.h>
+ #include <sys/time.h>
+ #include <sys/types.h>
+ #include <sys/vfs.h>
+ #include <sys/wait.h>
+ #include <utime.h>
+ #include <poll.h>
 #endif
 
 // Need to clear various moronic redefinitions made by system headers..

@@ -242,10 +242,10 @@
  #include "native/juce_android_SystemStats.cpp"
  #include "native/juce_android_Threads.cpp"
  #include "native/juce_android_RuntimePermissions.cpp"
-
 #elif JUCE_WASM
- #include "native/juce_wasm_SystemStats.cpp"
-
+#include "native/juce_linux_CommonFile.cpp"
+#include "native/juce_linux_Files.cpp"
+#include "native/juce_wasm_SystemStats.cpp"
 #endif
 
 #include "files/juce_common_MimeTypes.h"

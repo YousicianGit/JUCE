@@ -180,7 +180,6 @@ namespace
                  && JUCE_STAT (fileName.toUTF8(), &info) == 0;
     }
 
-   #if ! JUCE_WASM
     // if this file doesn't exist, find a parent of it that does..
     bool juce_doStatFS (File f, struct statfs& result)
     {
@@ -218,7 +217,6 @@ namespace
         if (isReadOnly != nullptr)
             *isReadOnly = access (path.toUTF8(), W_OK) != 0;
     }
-   #endif
 
     Result getResultForErrno()
     {
