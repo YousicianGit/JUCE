@@ -244,7 +244,7 @@
  #include "native/juce_android_RuntimePermissions.cpp"
 #elif JUCE_WASM
 #include "native/juce_linux_CommonFile.cpp"
-#include "native/juce_linux_Files.cpp"
+#include "native/juce_wasm_Files.cpp"
 #include "native/juce_wasm_SystemStats.cpp"
 #endif
 
