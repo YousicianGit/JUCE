@@ -185,6 +185,25 @@
   #endif
 #endif
 
+#if JUCE_WASM
+  #ifdef _DEBUG
+    #define JUCE_DEBUG 1
+  #endif
+
+  // These *should* be fixed on Emscripten
+  #if !defined(__LITTLE_ENDIAN__)
+    #error Unexpected big-endian WASM build
+  #endif
+  #if defined (__LP64__) || defined (_LP64)
+    #error Unexpected 64-bit WASM build
+  #else
+    static_assert(sizeof(void*) == 4, "Expected 32-bit pointers");
+  #endif
+
+  #define JUCE_LITTLE_ENDIAN 1
+  #define JUCE_32BIT 1
+#endif
+
 //==============================================================================
 // Compiler type macros.
 
@@ -199,4 +218,12 @@
 
 #else
   #error unknown compiler
+#endif
+
+#if !(defined(JUCE_LITTLE_ENDIAN) || defined(JUCE_BIG_ENDIAN))
+  #error Endianness not detected
+#endif
+
+#if !(defined(JUCE_32BIT) || defined(JUCE_64BIT))
+  #error Bitness not detected
 #endif
