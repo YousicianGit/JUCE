@@ -348,8 +348,9 @@ bool DragAndDropContainer::performExternalDragDropOfText (const String& text, Co
     {
         JUCE_AUTORELEASEPOOL
         {
-            if (auto event = [[view window] currentEvent])
+            if (auto eventNullable = [[view window] currentEvent])
             {
+                auto event = (NSEvent* _Nonnull) eventNullable;
                 id helper = [draggingSourceHelper.createInstance() init];
                 NSDraggingSourceHelper::setText (helper, text);
                 NSDraggingSourceHelper::setDragOperation (helper, NSDragOperationCopy);
@@ -392,8 +393,9 @@ bool DragAndDropContainer::performExternalDragDropOfFiles (const StringArray& fi
     {
         JUCE_AUTORELEASEPOOL
         {
-            if (auto event = [[view window] currentEvent])
+            if (auto eventNullable = [[view window] currentEvent])
             {
+                auto event = (NSEvent* _Nonnull) eventNullable;
                 auto dragItems = [[[NSMutableArray alloc] init] autorelease];
 
                 for (auto& filename : files)
@@ -718,26 +720,10 @@ Image juce_createIconForFile (const File& file)
 
 static Image createNSWindowSnapshot (NSWindow* nsWindow)
 {
-    JUCE_AUTORELEASEPOOL
-    {
-        CGImageRef screenShot = CGWindowListCreateImage (CGRectNull,
-                                                         kCGWindowListOptionIncludingWindow,
-                                                         (CGWindowID) [nsWindow windowNumber],
-                                                         kCGWindowImageBoundsIgnoreFraming);
+    // Implementation removed because it used deprecated APIs
 
-        NSBitmapImageRep* bitmapRep = [[NSBitmapImageRep alloc] initWithCGImage: screenShot];
-
-        Image result (Image::ARGB, (int) [bitmapRep size].width, (int) [bitmapRep size].height, true);
-
-        selectImageForDrawing (result);
-        [bitmapRep drawAtPoint: NSMakePoint (0, 0)];
-        releaseImageAfterDrawing();
-
-        [bitmapRep release];
-        CGImageRelease (screenShot);
-
-        return result;
-    }
+    Image result (Image::ARGB, 1, 1, true);
+    return result;
 }
 
 Image createSnapshotOfNativeWindow (void* nativeWindowHandle)
