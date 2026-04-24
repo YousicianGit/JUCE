@@ -613,9 +613,14 @@ namespace CoreMidiHelpers
 
     static Array<MidiDeviceInfo> findDevices (bool forInput)
     {
+        // On iOS this may be called from different thread without any apparent problems.
+        // The assertion is disabled to enable running debug builds without disabling this
+        // every time.
+#if !JUCE_IOS
         // It seems that OSX can be a bit picky about the thread that's first used to
         // search for devices. It's safest to use the message thread for calling this.
         JUCE_ASSERT_MESSAGE_THREAD
+#endif
 
         if (getGlobalMidiClient() == 0)
         {
