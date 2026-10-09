@@ -205,8 +205,13 @@ public:
         checkCreated();
     }
 
-    void onActivityDestroyed (jobject activity) override
+    void onActivityDestroyed ([[maybe_unused]] jobject activity) override
     {
+       #if JUCE_ANDROID_KEEP_APP_ALIVE_ON_ACTIVITY_DESTROY
+        // A host whose runtime outlives its activity (React Native) sees the main activity destroyed and recreated on
+        // configuration changes, recreate() and "Don't keep activities". Tearing JUCE down and exiting here would end
+        // the app each time, so JUCE lives as long as the process does.
+       #else
         auto* env = getEnv();
 
         // if the main activity is being destroyed, only then tear-down JUCE
@@ -219,6 +224,7 @@ public:
             jmethodID exitMethod = env->GetStaticMethodID (systemClass, "exit", "(I)V");
             env->CallStaticVoidMethod (systemClass, exitMethod, 0);
         }
+       #endif
     }
 
     void onActivityStarted (jobject) override
